@@ -1,0 +1,17 @@
+# Ignore all env and secret files
+.env
+.env.*
+*.local
+# Node
+node_modules
+dist
+.git
+# Python caches
+__pycache__
+*.py[cod]
+*.egg-info
+# Generated runtime data
+backend/uploads
+backend/generated_dashboards
+backend/generated_visualization
+backend/chroma_db

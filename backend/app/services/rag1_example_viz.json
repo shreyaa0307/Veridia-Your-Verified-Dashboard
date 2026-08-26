@@ -1,0 +1,700 @@
+[
+  {
+    "id": "global_development_dashboard_01",
+    "title": "Global Development Indicators Dashboard",
+    "dataset_fields": [
+      {"name": "Country", "type": "string", "role": "geographical"},
+      {"name": "Continent", "type": "string", "role": "categorical"},
+      {"name": "Year", "type": "integer", "role": "temporal"},
+      {"name": "GDP (per capita)", "type": "float", "role": "economic", "unit": "USD"},
+      {"name": "Life Expectancy", "type": "float", "role": "health", "unit": "years"},
+      {"name": "Population", "type": "integer", "role": "demographic"},
+      {"name": "Education Index", "type": "float", "role": "education", "range": "0-1"},
+      {"name": "Primary Enrollment", "type": "integer", "role": "education", "unit": "%"},
+      {"name": "Internet Users (%)", "type": "float", "role": "technology", "unit": "%"}
+    ],
+    "data_category": ["geographical", "economic", "demographic", "health", "education", "time-series"],
+    "description": "An interactive dashboard visualizing global development indicators across countries and years. Users can explore economic, health, and education metrics through animated maps, ranked bar charts, and time-series trends. The dashboard supports continent filtering and country-level drill-down for detailed analysis.",
+    "features": [
+      "Interactive choropleth map with country selection",
+      "Time-animated visualization (2000-2020)",
+      "Metric selector for different development indicators",
+      "Continent-level filtering",
+      "Top 10 country rankings for selected metric",
+      "Multi-metric time series visualization",
+      "Detailed country profile panel",
+      "Responsive design with linked visualizations"
+    ],
+    "ui_elements": [
+      "Play/pause animation button",
+      "Year selection dropdown",
+      "Metric selector dropdown",
+      "Continent filter dropdown",
+      "Interactive world map",
+      "Horizontal bar chart (top 10 countries)",
+      "Multi-line time series chart",
+      "Country details information panel"
+    ],
+    "animations": [
+      "Automatic year progression with play button",
+      "Smooth transitions between metric visualizations",
+      "Animated time series rendering",
+      "Dynamic updates of all charts on filter changes"
+    ],
+    "linked_plots": [
+      "Country selection updates time series and details panel",
+      "Metric selection updates all visualizations",
+      "Year selection synchronizes across all views",
+      "Continent filter affects map, bar chart, and time series"
+    ],
+    "tools_used": ["Dash", "Plotly Express", "Pandas", "GeoJSON"],
+    "complexity_level": "high",
+    "storytelling_notes": "The dashboard begins with a global economic overview (defaulting to GDP), allowing users to identify regional patterns. The time animation reveals development trends over two decades. Clicking a country shifts focus to national-level analysis, showing how different indicators correlate over time. The continent filter enables regional comparisons, while the top 10 ranking provides aspirational benchmarks for development goals.",
+    "analysis_dimensions": {
+      "temporal": "20-year trends (2000-2020)",
+      "geographical": "Country-level with continent grouping",
+      "thematic": [
+        {"name": "Economic", "metrics": ["GDP (per capita)"]},
+        {"name": "Health", "metrics": ["Life Expectancy"]},
+        {"name": "Education", "metrics": ["Education Index", "Primary Enrollment"]},
+        {"name": "Technology", "metrics": ["Internet Users (%)"]},
+        {"name": "Demographic", "metrics": ["Population"]}
+      ]
+    },
+    "best_for_use_cases": [
+      "Comparative country development analysis",
+      "Identifying regional development patterns",
+      "Tracking progress on SDG indicators",
+      "Educational tool for global development studies",
+      "Benchmarking national performance"
+    ]
+  },
+  {
+    "id": "sales_analytics_dashboard_01",
+    "title": "Interactive Sales Performance Dashboard",
+    "dataset_fields": [
+      {"name": "Date", "type": "date", "role": "temporal"},
+      {"name": "Year", "type": "integer", "role": "temporal"},
+      {"name": "Month", "type": "string", "role": "temporal"},
+      {"name": "Product", "type": "string", "role": "categorical"},
+      {"name": "Customer", "type": "string", "role": "categorical"},
+      {"name": "Units_Sold", "type": "integer", "role": "metric", "unit": "count"},
+      {"name": "Revenue", "type": "float", "role": "metric", "unit": "USD"},
+      {"name": "Profit", "type": "float", "role": "metric", "unit": "USD"},
+      {"name": "Month_Name", "type": "string", "role": "temporal"}
+    ],
+    "data_category": ["sales", "ecommerce", "retail", "time-series"],
+    "description": "An interactive dashboard tracking sales performance across products, customers, and time periods. Features animated visualizations of monthly profits, product distribution, and customer buying trends with AI-generated insights.",
+    "features": [
+      "Animated monthly profit visualization",
+      "Product sales distribution donut chart",
+      "Customer revenue trends over time",
+      "Year-over-year comparison",
+      "Customer filtering capability",
+      "Auto-play time animation",
+      "Smart insights generation"
+    ],
+    "ui_elements": [
+      "Year selector dropdown",
+      "Customer filter dropdown",
+      "Play/pause animation button",
+      "Monthly profit bar chart",
+      "Product sales pie chart",
+      "Customer trends line chart",
+      "Insights story card"
+    ],
+    "animations": [
+      "Automatic year progression",
+      "Smooth chart transitions",
+      "Color gradient effects"
+    ],
+    "linked_plots": [
+      "Year selection updates all visualizations",
+      "Customer filter affects all charts",
+      "Hover tooltips across all components"
+    ],
+    "tools_used": ["Dash", "Plotly Express", "Pandas"],
+    "complexity_level": "medium",
+    "storytelling_notes": "The dashboard opens with an overview of yearly performance. Users can identify seasonal patterns in the monthly view, top-selling products in the distribution chart, and key customer trends. The insights panel highlights best-performing periods and products automatically.",
+    "analysis_dimensions": {
+      "temporal": ["Yearly", "Monthly"],
+      "categorical": ["Product", "Customer"],
+      "metric": ["Revenue", "Profit", "Units Sold"]
+    },
+    "best_for_use_cases": [
+      "Retail sales performance tracking",
+      "Product line analysis",
+      "Customer buying pattern identification",
+      "Seasonal trend detection",
+      "Inventory planning"
+    ],
+    "data_notes": "Synthetic dataset structured to mimic real e-commerce/retail sales data. Compatible with common sales data formats from platforms like Shopify, Amazon Seller Central, or ERP systems.",
+    "implementation_notes": {
+      "data_requirements": "Requires date, product, customer, and monetary value columns",
+      "customizable_elements": [
+        "Color schemes",
+        "Time granularity (weekly/quarterly)",
+        "Additional metrics like discounts/returns"
+      ]
+    }
+  },
+  {
+    "id": "environmental_dashboard",
+    "title": "Climate & Biodiversity Tracker",
+    "dataset_fields": [
+      {"name": "Location", "type": "string", "role": "geospatial"},
+      {"name": "Year", "type": "integer", "role": "temporal"},
+      {"name": "Temperature_Anomaly", "type": "float", "role": "climate", "unit": "°C"},
+      {"name": "CO2_Level", "type": "float", "role": "pollution", "unit": "ppm"},
+      {"name": "Sea_Level_Change", "type": "float", "role": "climate", "unit": "mm"},
+      {"name": "Species_Count", "type": "integer", "role": "biodiversity"},
+      {"name": "Pollution_Index", "type": "float", "role": "pollution", "range": "0-100"}
+    ],
+    "data_category": ["climate", "biodiversity", "geospatial", "time-series"],
+    "description": "Interactive dashboard tracking climate change indicators and biodiversity metrics with animated geospatial visualizations and trend analysis.",
+    "features": [
+      "Multiple selections for dashboard updations",
+      "Animated temperature anomaly globe",
+      "Heatmap of pollution hotspots",
+      "Species population trends",
+      "Sea level rise projections",
+      "Connected cross-filtering",
+      "AI-generated risk assessments"
+    ],
+    "ui_elements": [
+      "Time slider with play/pausea animations",
+      "Location search",
+      "3D globe visualization",
+      "Interactive heatmap",
+      "Multi-axis trend chart",
+      "Risk indicator panel"
+    ],
+    "animations": [
+      "Time-lapse climate changes",
+      "Morphing heatmap intensities",
+      "Dynamic species migration paths"
+    ],
+    "linked_plots": [
+      "Location selection updates all views",
+      "Time range affects all visualizations",
+      "Pollution levels trigger risk indicators"
+    ],
+    "tools_used": ["Dash", "Plotly", "Pandas", "GeoPandas"],
+    "complexity_level": "medium",
+    "storytelling_notes": "The dashboard opens with a global view of temperature anomalies. Users can track how pollution levels correlate with biodiversity changes over time. The system highlights emerging climate risks and conservation priorities.",
+    "analysis_dimensions": {
+      "temporal": "Annual trends",
+      "geospatial": "Regional hotspots",
+      "thematic": [
+        {"name": "Climate", "metrics": ["Temperature_Anomaly", "Sea_Level_Change"]},
+        {"name": "Pollution", "metrics": ["CO2_Level", "Pollution_Index"]},
+        {"name": "Biodiversity", "metrics": ["Species_Count"]}
+      ]
+    },
+    "best_for_use_cases": [
+      "Climate change monitoring",
+      "Conservation planning",
+      "Environmental policy analysis",
+      "Educational demonstrations"
+    ]
+  },
+  {
+    "id": "hospital_analytics_dashboard",
+    "title": "Medical Performance Dashboard",
+    "dataset_fields": [
+      {"name": "Date", "type": "date", "role": "temporal"},
+      {"name": "Condition", "type": "string", "role": "clinical"},
+      {"name": "Hospital", "type": "string", "role": "institutional"},
+      {"name": "Admissions", "type": "integer", "role": "volume"},
+      {"name": "Outcomes", "type": "string", "role": "result"}
+    ],
+    "data_category": ["healthcare", "clinical", "time-series","medical"],
+    "description": "Animated dashboard showing hospital performance with interactive mortality trends and resource utilization",
+    "features": [
+      "Live-updating survival curves",
+      "Animated ICU capacity rings",
+      "Mortality risk heatmaps",
+      "Treatment cost bubbles"
+    ],
+    "ui_elements": [
+      "ECG-style line charts",
+      "Pulsing emergency alerts",
+      "Medical-themed color scales",
+      "Interactive prescription-style filters"
+    ],
+    "animations": [
+      "Heartbeat rhythm for live data",
+      "IV drip-style data loading",
+      "Animated triage priority sorting"
+    ],
+    "linked_plots": [
+      "Condition selection updates survival curves + heatmaps",
+      "Hospital choice filters all views",
+      "Time scrubber synchronizes animations"
+    ],
+    "visualization_types": [
+      {"type": "pulse_chart", "use": "Real-time patient vitals"},
+      {"type": "contamination_web", "use": "Infection spread analysis"},
+      {"type": "pill_shape_bars", "use": "Medication effectiveness"}
+    ],
+    "medical_aesthetic": {
+      "color_palette": "Hospital greens/blues",
+      "data_shapes": "Crosses, pills, hearts",
+      "typography": "Clean, high-contrast labels",
+      "icons": "ECG lines, medical symbols"
+    },
+    "tools_used": ["Dash", "Plotly", "D3-medical"],
+    "complexity_level": "medium"
+  },
+  {
+    "id": "person_analytics_dashboard",
+    "title": "Interactive Player Performance Dashboard",
+    "dataset_fields": [
+      {"name": "player", "type": "string", "role": "entity"},
+      {"name": "date", "type": "date", "role": "temporal"},
+      {"name": "x", "type": "float", "role": "spatial", "unit": "court_position"},
+      {"name": "y", "type": "float", "role": "spatial", "unit": "court_position"},
+      {"name": "pass_dir", "type": "string", "role": "directional"},
+      {"name": "pass_dist", "type": "integer", "role": "metric", "unit": "feet"},
+      {"name": "shot_clock", "type": "integer", "role": "temporal", "unit": "seconds"}
+    ],
+    "data_category": ["sports", "player-tracking","person-analysis"],
+    "description": "Interactive dashboard analyzing player passing patterns with court-position heatmaps, directional roses, and temporal distributions.",
+    "features": [
+      "Player profile with dynamic image loading",
+      "Court-position heatmap overlay",
+      "Polar pass direction visualization",
+      "Person parameters can be set which change the other plots accordingly",
+      "date filtering for day-wise performance"
+    ],
+    "ui_elements": [
+      "Player selector dropdown",
+      "Date range picker",
+      "Shot clock slider",
+      "Quick-filter buttons"
+    ],
+    "visualizations": [
+      {
+        "type": "heatmap",
+        "purpose": "Show pass origin density",
+        "special_feature": "Overlayed on basketball court image",
+        "interactivity": "Zooms on date/clock filters"
+      },
+      {
+        "type": "polar_bar",
+        "purpose": "Visualize pass direction/distance",
+        "special_feature": "Distance-encoded color scale",
+        "interactivity": "Responds to player selection"
+      },
+      {
+        "type": "histogram",
+        "purpose": "Analyze assist timing",
+        "special_feature": "Shot-clock binned distribution",
+        "interactivity": "Updates with all filters"
+      }
+    ],
+    "linked_interactions": [
+      "Player change updates all visualizations + profile image",
+      "Date range filters heatmap spatial distribution",
+      "player parameters can be set changing other plots",
+      "Shot clock slider affects all three charts"
+    ],
+    "analytics_panel": {
+      "content": [
+        "Current filter summary statistics",
+        "Performance trend analysis",
+        "Comparative benchmarks",
+        "Predictive insights based on filters"
+      ],
+      "update_triggers": [
+        "Parameter changes",
+        "Data subset selection",
+        "Time period adjustment"
+      ]
+    },
+    "tools_used": ["Dash", "Plotly", "Pandas"],
+    "adaptation_notes": {
+      "for_sports": "Replace court image/coordinates for other sports",
+      "for_person_analysis": "Swap player stats for personal metrics",
+      "general_use": "Maintain 3-view layout (profile, filters, visualizations)"
+    }
+  },
+  {
+    "id": "transport_analytics_dashboard",
+    "title": "Interactive Transit Operations Dashboard",
+    "dataset_fields": [
+      {"name": "route", "type": "string", "role": "categorical"},
+      {"name": "vehicle", "type": "string", "role": "categorical"},
+      {"name": "stop", "type": "string", "role": "geospatial"},
+      {"name": "lat/lon", "type": "float", "role": "coordinates"},
+      {"name": "boarding", "type": "integer", "role": "metric"},
+      {"name": "alighting", "type": "integer", "role": "metric"},
+      {"name": "revenue", "type": "float", "role": "financial"},
+      {"name": "crowding", "type": "float", "role": "utilization", "range": "0-1"},
+      {"name": "date", "type": "date", "role": "temporal"}
+    ],
+    "data_category": ["transportation", "urban-mobility", "geospatial","road"],
+    "description": "Interactive dashboard analyzing transit operations with real-time route visualization, passenger flow analytics, and performance metrics.",
+    "key_features": [
+      "Animated route visualization with stop-by-stop progression",
+      "3D performance scatter plot (boarding/alighting/crowding)",
+      "Dynamic KPI indicators",
+      "Multi-parameter filtering system"
+    ],
+    "visualizations": [
+      {
+        "type": "animated_map",
+        "elements": ["stop locations", "route path", "boarding heatmap"],
+        "interactions": ["hover stop details", "map style selector", "stop sequence animation"]
+      },
+      {
+        "type": "grouped_bar",
+        "elements": ["boarding vs alighting by stop"],
+        "interactions": ["click to highlight stops"]
+      },
+      {
+        "type": "3d_scatter",
+        "elements": ["boarding volume", "alighting ratio", "crowding intensity"],
+        "interactions": ["rotate view", "hover metrics", "size by revenue"]
+      }
+    ],
+    "ui_components": [
+      "Route/vehicle selectors",
+      "Date picker with single-day focus",
+      "Dynamic range sliders (crowding/boarding)",
+      "Map style selector",
+      "Auto-updating KPI panel",
+      "AI-generated insights panel"
+    ],
+    "interaction_patterns": [
+      "Cross-filtering (all views update on parameter change)",
+      "Geospatial , metric view linking",
+      "Animated transitions between stops"
+    ],
+    "styling": {
+      "theme": "Urban transit",
+      "color_scales": ["Turbo (map)", "Viridis (3D)"],
+      "layout": "Sidebar controls + main visualization area"
+    },
+    "analytics_features": [
+      "Real-time performance snapshots",
+      "Anomaly detection (low-performing stops)",
+      "Capacity utilization alerts",
+      "Revenue optimization suggestions"
+    ],
+    "adaptation_guide": {
+      "for_other_transport": "Replace route/stop schema",
+      "for_city_planning": "Add zoning/population layers",
+      "general_use": "Maintain control-visualization-insight triad"
+    },
+    "tools_used": ["Dash", "Plotly", "Pandas", "Mapbox"]
+  },
+  {
+    "id": "financial_markets_dashboard",
+    "title": "Global Markets Pulse",
+    "dataset_fields": [
+      {"name": "Date", "type": "date", "role": "temporal"},
+      {"name": "Asset", "type": "string", "role": "entity"},
+      {"name": "Sector", "type": "string", "role": "categorical"},
+      {"name": "Price", "type": "float", "role": "metric", "unit": "USD"},
+      {"name": "Volume", "type": "integer", "role": "liquidity"},
+      {"name": "Returns", "type": "float", "role": "performance", "unit": "%"},
+      {"name": "Volatility", "type": "float", "role": "risk"},
+      {"name": "Market_Cap", "type": "float", "role": "valuation", "unit": "USD"}
+    ],
+    "data_category": ["financial", "markets", "time-series", "economic"],
+    "description": "Interactive dashboard tracking global financial markets with animated asset performance, correlation matrices, and macroeconomic indicators.",
+    "key_features": [
+      "Animated candlestick time series with play/pause and a great layout",
+      "Dynamic correlation heatmap",
+      "Sector performance radar charts",
+      "Market cap bubble timeline",
+      "Volatility surface visualization"
+    ],
+    "visualizations": [
+      {
+        "type": "animated_ohlc",
+        "elements": ["price movements", "volume bars", "moving averages"],
+        "interactions": ["time scrubbing", "asset comparison", "technical indicator toggles"]
+      },
+      {
+        "type": "interactive_heatmap",
+        "elements": ["asset correlations", "sector clustering", "risk gradients"],
+        "interactions": ["click to filter assets", "hover for correlation values"]
+      },
+      {
+        "type": "bubble_timeline",
+        "elements": ["market cap growth", "sector bubbles", "valuation trends"],
+        "interactions": ["play/pause animation", "zoom to time period"]
+      }
+    ],
+    "ui_components": [
+      "Asset/sector multi-selector",
+      "Technical indicator controls (SMA, RSI, Bollinger Bands)",
+      "Time period selector with animation controls",
+      "Market regime toggle (bull/bear/neutral)",
+      "Risk appetite slider",
+      "Macroeconomic indicator overlay"
+    ],
+    "interaction_patterns": [
+      "Asset selection propagates to all views",
+      "Time animation synchronizes visualizations",
+      "Risk-adjusted return filtering",
+      "Cross-view highlighting"
+    ],
+    "animations": [
+      "Price evolution over time",
+      "Market cap growth bubbles",
+      "Volatility surface changes",
+      "Sector rotation effects"
+    ],
+    "styling": {
+      "theme": "Professional trading terminal",
+      "color_scales": ["Diverging (returns)", "Sequential (volatility)"],
+      "layout": "Multi-panel Bloomberg-style",
+      "aesthetic": ["Dark mode", "Neon indicators", "Minimalist typography"]
+    },
+    "analytics_features": [
+      "Real-time risk assessment",
+      "Portfolio stress testing",
+      "Sector performance attribution",
+      "Historical regime analysis",
+      "Correlation breakdowns"
+    ],
+    "adaptation_guide": {
+      "for_crypto": "Add blockchain metrics",
+      "for_forex": "Include currency pairs",
+      "for_commodities": "Add futures term structure",
+      "general_finance": "Maintain price-volume-risk triad"
+    },
+    "tools_used": ["Dash", "Plotly", "Pandas", "TA-Lib", "Dash-Daq"]
+  },
+  {
+    "id": "social_media_dashboard",
+    "title": "Viral Pulse Analytics",
+    "dataset_fields": [
+      {"name": "timestamp", "type": "datetime", "role": "temporal"},
+      {"name": "platform", "type": "string", "role": "categorical"},
+      {"name": "content_type", "type": "string", "role": "categorical"},
+      {"name": "engagement", "type": "object", "role": "metric", "subfields": ["likes", "shares", "comments", "saves"]},
+      {"name": "virality_score", "type": "float", "role": "composite_metric"},
+      {"name": "user_demographics", "type": "object", "role": "audience"},
+      {"name": "sentiment", "type": "float", "role": "analysis", "range": "-1 to 1"}
+    ],
+    "data_category": ["social-media", "digital-marketing", "time-series"],
+    "description": "Interactive dashboard analyzing social media performance with creative visualizations of engagement patterns and viral content dynamics.",
+    "key_features": [
+      "Animated content spread network graphs",
+      "3D sentiment landscape over time",
+      "Engagement fingerprint radial charts",
+      "Viral cascade particle simulation",
+      "AI-powered trend prediction"
+    ],
+    "visualizations": [
+      {
+        "type": "network_graph",
+        "purpose": "Visualize content sharing paths",
+        "special": "Animated node growth based on virality",
+        "interactions": ["Click nodes to see post details", "Drag to explore networks"]
+      },
+      {
+        "type": "sentiment_surface",
+        "purpose": "3D emotion mapping over time",
+        "special": "Dynamic mood coloring",
+        "interactions": ["Rotate view", "Play/pause timeline"]
+      },
+      {
+        "type": "engagement_clock",
+        "purpose": "Radial chart of interaction patterns",
+        "special": "24-hour activity cycles",
+        "interactions": ["Hover time segments", "Compare platforms"]
+      }
+    ],
+    "ui_components": [
+      "Platform selector with custom icons",
+      "Content type toggles (images/videos/text)",
+      "Virality threshold slider",
+      "Demographic filters (age/gender/location)",
+      "Time warp controller (speed/range)",
+      "Trend prediction engine"
+    ],
+    "interaction_patterns": [
+      "Network graph → updates all other views",
+      "Time scrubbing → animates all visualizations",
+      "Sentiment brush → filters content",
+      "Platform comparison mode"
+    ],
+    "animations": [
+      "Viral cascade particle effects",
+      "Engagement pulse waves",
+      "Sentiment cloud morphing",
+      "Network node growth"
+    ],
+    "styling": {
+      "theme": "Dark mode with neon accents",
+      "color_palette": "Vibrant platform colors",
+      "typography": "Modern sans-serif",
+      "special_effects": ["Glowing data points", "Animated transitions"]
+    },
+    "analytics_features": [
+      "Real-time virality detection",
+      "Optimal posting time calculator",
+      "Audience sentiment analysis",
+      "Cross-platform performance",
+      "Influencer impact scoring"
+    ],
+    "tools_used": ["Dash", "Plotly", "Three.js", "D3-force", "NLTK"],
+    "adaptation_guide": {
+      "for_other_datasets": [
+        "Replace platform-specific metrics",
+        "Adjust network graph parameters",
+        "Customize demographic filters"
+      ],
+      "design_principles": [
+        "Prioritize visual storytelling",
+        "Maintain platform color coding",
+        "Keep real-time updates prominent"
+      ]
+    }
+  },
+  {
+    "id": "iot_sensor_dashboard",
+    "title": "Real-Time Sensor Intelligence",
+    "dataset_fields": [
+      {"name": "timestamp", "type": "datetime", "role": "temporal", "resolution": "ms"},
+      {"name": "device_id", "type": "string", "role": "entity"},
+      {"name": "location", "type": "geopoint", "role": "spatial"},
+      {"name": "measurements", "type": "object", "role": "metrics", 
+       "subfields": ["value", "unit", "status", "threshold"]},
+      {"name": "anomaly_score", "type": "float", "role": "analysis"}
+    ],
+    "data_category": ["iot", "real-time", "telemetry"],
+    "description": "Live monitoring dashboard for sensor networks with animated gauges, anomaly detection, and predictive maintenance insights.",
+    "key_components": {
+      "visualizations": [
+        {
+          "type": "live_gauge_cluster",
+          "features": ["animates on update", "color-thresholds", "sparkline history"]
+        },
+        {
+          "type": "topology_map",
+          "features": ["device locations", "status bubbles", "alert propagation"]
+        },
+        {
+          "type": "temporal_heatmap",
+          "features": ["24h patterns", "anomaly highlights", "play/pause"]
+        }
+      ],
+      "analytics_panel": {
+        "predictive_elements": [
+          "Failure probability estimates",
+          "Usage trend forecasts",
+          "Maintenance recommendations"
+        ],
+        "update_triggers": [
+          "New anomaly detection",
+          "Threshold crossings",
+          "Manual refresh"
+        ]
+      }
+    },
+    "interactivity": [
+      "Device selector tree",
+      "Time window slider",
+      "Alert severity filter",
+      "Gauge speed control",
+      "Map zoom/layers"
+    ],
+    "real_time_features": [
+      "WebSocket data stream",
+      "Animated transitions",
+      "Alert sound notifications",
+      "Auto-scrolling timelines"
+    ],
+    "styling": {
+      "theme": "Dark industrial",
+      "alert_colors": {
+        "critical": "pulsing-red",
+        "warning": "flashing-amber",
+        "normal": "steady-green"
+      }
+    },
+    "tech_stack": ["Dash", "Plotly", "MQTT", "TensorFlow.js"],
+    "use_cases": [
+      "Smart home energy monitoring",
+      "Vehicle fleet telemetry",
+      "Factory equipment tracking",
+      "Environmental sensor networks"
+    ]
+  },
+  {
+    "id": "iot_sensor_dashboard",
+    "title": "Real-Time Sensor Intelligence",
+    "dataset_fields": [
+      {"name": "timestamp", "type": "datetime", "role": "temporal", "resolution": "ms"},
+      {"name": "device_id", "type": "string", "role": "entity"},
+      {"name": "location", "type": "geopoint", "role": "spatial"},
+      {"name": "measurements", "type": "object", "role": "metrics", 
+       "subfields": ["value", "unit", "status", "threshold"]},
+      {"name": "anomaly_score", "type": "float", "role": "analysis"}
+    ],
+    "data_category": ["iot", "real-time", "telemetry"],
+    "description": "Live monitoring dashboard for sensor networks with animated gauges, anomaly detection, and predictive maintenance insights.",
+    "key_components": {
+      "visualizations": [
+        {
+          "type": "live_gauge_cluster",
+          "features": ["animates on update", "color-thresholds", "sparkline history"]
+        },
+        {
+          "type": "topology_map",
+          "features": ["device locations", "status bubbles", "alert propagation"]
+        },
+        {
+          "type": "temporal_heatmap",
+          "features": ["24h patterns", "anomaly highlights", "play/pause"]
+        }
+      ],
+      "analytics_panel": {
+        "predictive_elements": [
+          "Failure probability estimates",
+          "Usage trend forecasts",
+          "Maintenance recommendations"
+        ],
+        "update_triggers": [
+          "New anomaly detection",
+          "Threshold crossings",
+          "Manual refresh"
+        ]
+      }
+    },
+    "interactivity": [
+      "Device selector tree",
+      "Time window slider",
+      "Alert severity filter",
+      "Gauge speed control",
+      "Map zoom/layers"
+    ],
+    "real_time_features": [
+      "WebSocket data stream",
+      "Animated transitions",
+      "Alert sound notifications",
+      "Auto-scrolling timelines"
+    ],
+    "styling": {
+      "theme": "Dark industrial",
+      "alert_colors": {
+        "critical": "pulsing-red",
+        "warning": "flashing-amber",
+        "normal": "steady-green"
+      }
+    },
+    "tech_stack": ["Dash", "Plotly", "MQTT", "TensorFlow.js"],
+    "use_cases": [
+      "Smart home energy monitoring",
+      "Vehicle fleet telemetry",
+      "Factory equipment tracking",
+      "Environmental sensor networks"
+    ]
+  }
+]

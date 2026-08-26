@@ -1,0 +1,121 @@
+Patient_ID,Age,Gender,BMI,Blood_Pressure_Systolic,Blood_Pressure_Diastolic,Cholesterol,Blood_Sugar_Level,Heart_Rate,Smoking_Status,Exercise_Frequency,Primary_Diagnosis,Hospital_Visits_Last_Year,Medication_Count
+P0001,69,Male,36.9,111,117,Normal,130.9,66,Current Smoker,Daily,Healthy,8,6
+P0002,32,Female,25.2,147,112,High,123.9,62,Non-smoker,1-2 times/week,Obesity,5,6
+P0003,89,Male,22.8,147,109,High,105.5,69,Non-smoker,1-2 times/week,Hypertension,7,3
+P0004,78,Male,33.6,175,104,Normal,77.3,74,Non-smoker,Daily,Hypertension,1,6
+P0005,38,Male,35.8,138,70,Normal,182.4,53,Non-smoker,3-5 times/week,Obesity,8,6
+P0006,41,Female,25.7,141,88,Borderline,175.7,59,Current Smoker,3-5 times/week,Heart Disease,4,7
+P0007,20,Female,20.1,131,115,High,200.0,52,Current Smoker,1-2 times/week,Heart Disease,6,0
+P0008,39,Female,38.7,159,95,High,199.6,90,Former Smoker,1-2 times/week,Heart Disease,9,3
+P0009,70,Female,26.7,104,84,Normal,142.2,94,Current Smoker,3-5 times/week,Obesity,0,4
+P0010,19,Male,29.4,143,80,Borderline,170.0,67,Current Smoker,Daily,Hypertension,9,5
+P0011,47,Female,36.4,149,116,High,192.8,96,Former Smoker,1-2 times/week,Obesity,4,0
+P0012,55,Male,32.9,97,95,High,180.5,85,Current Smoker,Never,Obesity,9,4
+P0013,19,Male,34.2,142,69,Borderline,102.2,96,Non-smoker,Daily,Heart Disease,1,1
+P0014,81,Female,22.6,149,96,Borderline,128.6,71,Non-smoker,1-2 times/week,Diabetes,5,0
+P0015,77,Female,29.9,94,68,High,86.8,83,Former Smoker,1-2 times/week,Hypertension,0,7
+P0016,38,Female,33.3,157,83,High,194.0,96,Former Smoker,Never,Heart Disease,2,4
+P0017,50,Female,23.0,95,94,Borderline,148.8,57,Former Smoker,Never,Diabetes,4,1
+P0018,75,Female,21.8,136,108,High,99.7,89,Non-smoker,3-5 times/week,Diabetes,3,3
+P0019,39,Female,39.6,144,94,Normal,157.3,98,Current Smoker,Daily,Healthy,2,5
+P0020,66,Female,29.4,129,107,Normal,150.4,93,Non-smoker,Daily,Hypertension,9,1
+P0021,76,Female,23.7,141,95,Borderline,116.6,68,Former Smoker,3-5 times/week,Diabetes,4,6
+P0022,59,Male,39.9,105,77,Borderline,84.8,91,Current Smoker,Daily,Heart Disease,7,2
+P0023,77,Female,39.2,102,108,Borderline,157.3,90,Current Smoker,Daily,Healthy,3,1
+P0024,32,Female,30.3,119,98,Normal,137.6,86,Non-smoker,Daily,Hypertension,0,1
+P0025,79,Male,37.4,108,91,High,170.4,55,Former Smoker,Daily,Obesity,6,5
+P0026,79,Female,22.2,106,83,Normal,137.6,101,Non-smoker,Daily,Heart Disease,7,2
+P0027,64,Male,24.1,152,82,High,180.8,75,Current Smoker,Never,Diabetes,2,6
+P0028,79,Male,33.4,108,91,Normal,141.7,83,Non-smoker,Daily,Diabetes,5,4
+P0029,68,Female,36.6,147,96,High,142.9,108,Non-smoker,Never,Heart Disease,1,4
+P0030,72,Male,36.8,144,71,Normal,184.0,105,Former Smoker,Daily,Diabetes,6,1
+P0031,81,Male,26.9,179,108,Borderline,122.5,108,Former Smoker,3-5 times/week,Healthy,7,7
+P0032,20,Male,37.5,179,114,Normal,87.4,94,Current Smoker,1-2 times/week,Hypertension,5,7
+P0033,68,Male,36.7,151,72,High,73.7,55,Non-smoker,Never,Healthy,5,2
+P0034,24,Female,38.6,112,82,Normal,168.2,86,Non-smoker,Daily,Diabetes,4,2
+P0035,38,Male,35.3,98,84,Normal,150.6,106,Non-smoker,3-5 times/week,Obesity,7,6
+P0036,56,Female,32.7,101,94,Normal,161.5,82,Current Smoker,1-2 times/week,Hypertension,0,5
+P0037,35,Male,30.8,90,100,Borderline,97.7,102,Current Smoker,Never,Hypertension,9,3
+P0038,21,Male,26.2,147,89,Normal,87.7,71,Former Smoker,1-2 times/week,Heart Disease,3,4
+P0039,77,Male,38.7,90,76,Borderline,71.9,70,Former Smoker,3-5 times/week,Heart Disease,3,5
+P0040,31,Male,39.4,123,108,Borderline,115.6,55,Former Smoker,Never,Obesity,2,0
+P0041,26,Female,24.2,137,79,Normal,146.7,55,Non-smoker,1-2 times/week,Hypertension,2,4
+P0042,70,Female,24.7,178,107,Normal,121.0,104,Non-smoker,Daily,Obesity,3,5
+P0043,19,Male,28.7,90,84,Normal,126.9,97,Former Smoker,Never,Heart Disease,0,4
+P0044,77,Male,27.9,105,81,High,187.5,53,Non-smoker,1-2 times/week,Heart Disease,1,3
+P0045,88,Female,39.9,150,72,Normal,115.3,79,Former Smoker,3-5 times/week,Hypertension,8,0
+P0046,61,Male,21.9,153,118,Borderline,136.8,60,Current Smoker,3-5 times/week,Healthy,9,7
+P0047,25,Male,18.4,152,78,Normal,171.9,79,Former Smoker,Never,Diabetes,1,7
+P0048,64,Male,28.9,158,108,High,121.6,80,Current Smoker,1-2 times/week,Heart Disease,4,3
+P0049,52,Female,21.9,111,95,Normal,150.9,73,Non-smoker,Never,Heart Disease,8,6
+P0050,53,Female,26.1,156,71,High,182.1,104,Former Smoker,Never,Healthy,8,0
+P0051,67,Female,34.4,165,100,High,193.4,58,Non-smoker,1-2 times/week,Healthy,7,1
+P0052,21,Male,33.9,115,78,Normal,89.1,104,Current Smoker,1-2 times/week,Obesity,0,5
+P0053,19,Male,24.8,105,71,Borderline,190.5,52,Current Smoker,Daily,Obesity,0,0
+P0054,23,Female,29.9,140,68,High,134.0,100,Current Smoker,1-2 times/week,Diabetes,8,6
+P0055,71,Female,29.2,175,66,Normal,103.6,80,Non-smoker,3-5 times/week,Diabetes,7,6
+P0056,21,Female,32.0,146,87,Normal,129.7,89,Non-smoker,Never,Hypertension,9,3
+P0057,71,Female,23.5,118,73,Borderline,197.4,86,Non-smoker,Never,Obesity,8,4
+P0058,80,Male,31.0,167,90,High,134.0,85,Non-smoker,3-5 times/week,Heart Disease,6,0
+P0059,35,Female,39.5,158,111,High,112.7,73,Current Smoker,1-2 times/week,Obesity,2,5
+P0060,61,Male,28.7,136,78,Normal,152.3,80,Current Smoker,3-5 times/week,Heart Disease,2,0
+P0061,51,Female,37.9,151,117,Normal,101.2,55,Former Smoker,3-5 times/week,Healthy,1,2
+P0062,79,Male,27.6,158,106,Borderline,79.9,51,Former Smoker,Daily,Obesity,4,4
+P0063,31,Female,25.7,165,75,Borderline,86.8,69,Non-smoker,3-5 times/week,Healthy,2,5
+P0064,65,Female,32.2,105,112,High,86.6,77,Current Smoker,Never,Diabetes,5,7
+P0065,32,Female,32.7,179,64,High,89.7,60,Current Smoker,3-5 times/week,Diabetes,1,5
+P0066,89,Female,37.0,179,94,Normal,88.0,53,Current Smoker,Never,Hypertension,2,1
+P0067,79,Male,23.1,137,71,High,153.3,64,Former Smoker,Never,Obesity,4,3
+P0068,57,Female,29.0,174,84,Borderline,93.6,55,Former Smoker,Never,Healthy,0,1
+P0069,70,Male,30.6,128,111,Borderline,114.9,103,Current Smoker,1-2 times/week,Heart Disease,0,5
+P0070,41,Male,34.9,122,118,Normal,186.6,98,Current Smoker,Daily,Diabetes,9,4
+P0071,43,Male,19.0,112,80,Borderline,131.6,79,Current Smoker,Never,Diabetes,8,0
+P0072,77,Male,39.9,99,95,Borderline,156.8,105,Former Smoker,Never,Heart Disease,6,7
+P0073,58,Female,28.3,158,112,Borderline,92.4,87,Current Smoker,1-2 times/week,Healthy,0,0
+P0074,46,Male,24.2,123,82,Borderline,95.0,100,Current Smoker,Never,Healthy,7,4
+P0075,32,Male,37.4,141,75,Normal,75.3,106,Non-smoker,3-5 times/week,Obesity,2,5
+P0076,62,Male,34.4,99,116,Normal,92.0,51,Non-smoker,3-5 times/week,Obesity,7,6
+P0077,82,Female,39.0,108,98,High,106.2,64,Former Smoker,Daily,Hypertension,4,0
+P0078,88,Female,25.3,147,104,Borderline,93.0,60,Current Smoker,Never,Diabetes,0,6
+P0079,26,Female,30.2,90,112,High,81.5,57,Current Smoker,1-2 times/week,Obesity,6,0
+P0080,18,Female,30.6,158,101,Normal,85.7,75,Non-smoker,3-5 times/week,Healthy,4,0
+P0081,25,Male,39.6,93,117,Normal,129.9,100,Former Smoker,1-2 times/week,Heart Disease,5,7
+P0082,80,Male,19.7,105,98,Normal,96.8,94,Non-smoker,1-2 times/week,Healthy,5,3
+P0083,28,Female,24.7,113,73,Normal,117.4,93,Non-smoker,3-5 times/week,Diabetes,7,3
+P0084,25,Male,22.2,169,90,Normal,135.4,54,Non-smoker,1-2 times/week,Healthy,8,2
+P0085,52,Male,23.9,91,117,Normal,159.8,55,Non-smoker,3-5 times/week,Hypertension,1,1
+P0086,52,Male,28.7,121,64,Normal,75.1,75,Current Smoker,1-2 times/week,Diabetes,8,4
+P0087,50,Female,26.2,173,94,Borderline,173.9,103,Current Smoker,3-5 times/week,Heart Disease,9,4
+P0088,22,Female,26.7,113,82,High,151.6,53,Non-smoker,Never,Hypertension,8,4
+P0089,58,Male,36.6,101,88,Normal,80.6,68,Former Smoker,Daily,Diabetes,9,2
+P0090,45,Female,38.5,139,102,Borderline,183.6,69,Former Smoker,3-5 times/week,Heart Disease,9,3
+P0091,24,Female,19.5,124,70,Borderline,189.7,82,Former Smoker,3-5 times/week,Hypertension,6,5
+P0092,89,Female,22.6,122,77,High,77.9,69,Former Smoker,Daily,Hypertension,0,6
+P0093,29,Female,32.8,122,106,Normal,106.0,98,Non-smoker,3-5 times/week,Diabetes,6,7
+P0094,51,Female,25.9,150,71,High,174.8,61,Current Smoker,3-5 times/week,Obesity,9,6
+P0095,50,Male,23.6,140,68,Normal,167.3,96,Former Smoker,1-2 times/week,Hypertension,4,5
+P0096,65,Female,24.5,132,69,Borderline,94.0,50,Non-smoker,Daily,Hypertension,5,7
+P0097,40,Male,25.1,101,117,Borderline,97.2,75,Former Smoker,Never,Heart Disease,9,2
+P0098,79,Male,36.7,156,103,Borderline,118.2,63,Former Smoker,3-5 times/week,Healthy,6,5
+P0099,54,Female,21.0,154,76,Borderline,133.0,87,Non-smoker,Daily,Diabetes,4,4
+P0100,61,Male,33.6,122,97,High,150.4,86,Current Smoker,1-2 times/week,Diabetes,6,1
+P0101,52,Male,30.2,129,66,Normal,118.0,60,Current Smoker,Never,Obesity,8,0
+P0102,82,Male,24.5,163,105,Normal,130.1,85,Non-smoker,Daily,Obesity,2,6
+P0103,64,Female,27.2,132,72,High,167.2,62,Current Smoker,Never,Diabetes,7,3
+P0104,20,Female,23.6,133,99,Normal,74.8,92,Non-smoker,Never,Obesity,1,3
+P0105,18,Male,31.5,118,101,Borderline,102.8,52,Non-smoker,Never,Heart Disease,6,2
+P0106,22,Female,19.8,102,68,Normal,162.7,82,Non-smoker,3-5 times/week,Diabetes,1,7
+P0107,31,Female,18.1,101,109,Borderline,186.4,55,Current Smoker,3-5 times/week,Obesity,3,3
+P0108,44,Female,31.8,135,86,High,136.5,99,Non-smoker,1-2 times/week,Diabetes,6,4
+P0109,26,Female,22.3,91,117,Normal,139.2,105,Former Smoker,1-2 times/week,Healthy,2,6
+P0110,32,Male,19.6,124,61,High,83.9,59,Current Smoker,Daily,Hypertension,1,5
+P0111,59,Male,26.7,176,64,Normal,128.2,54,Current Smoker,1-2 times/week,Diabetes,9,4
+P0112,68,Female,19.1,170,88,Borderline,139.2,72,Current Smoker,Never,Hypertension,6,2
+P0113,80,Female,37.5,179,96,High,101.5,59,Current Smoker,Never,Obesity,0,4
+P0114,69,Male,18.6,97,97,Normal,105.0,93,Former Smoker,3-5 times/week,Hypertension,7,5
+P0115,21,Male,30.7,115,78,Borderline,119.0,51,Current Smoker,Never,Diabetes,2,1
+P0116,40,Female,27.6,163,67,High,72.6,62,Current Smoker,Daily,Healthy,1,2
+P0117,32,Male,32.8,179,107,High,111.9,89,Non-smoker,Never,Obesity,2,1
+P0118,60,Female,25.2,123,104,Normal,97.5,51,Current Smoker,Never,Diabetes,4,0
+P0119,46,Female,21.4,96,60,Normal,112.6,69,Former Smoker,Daily,Obesity,7,1
+P0120,53,Male,39.6,157,81,Normal,85.6,50,Former Smoker,1-2 times/week,Heart Disease,9,0

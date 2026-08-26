@@ -1,0 +1,32 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: veridia-backend
+    env_file:
+      - ./backend/.env.local
+    environment:
+      - UPLOAD_DIR=/tmp/uploads
+      - DASHBOARD_DIR=/tmp/generated_dashboards
+      - CHROMA_DIR=/tmp/chroma_db
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"      # API
+      - "8050-8060:8050-8060"             # Dash app ports
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-}
+    container_name: veridia-frontend
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"       # Public web
+    depends_on:
+      - backend
+    restart: unless-stopped

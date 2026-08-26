@@ -1,0 +1,101 @@
+User_ID,Age_Group,Monthly_Income_USD,Spending_Category,Transaction_Amount,Payment_Mode,Transaction_Hour,Geo_Region,Loyalty_Points
+U1000,26-35,1363,Healthcare,2700.7,NetBanking,8,East,4613
+U1001,46-60,3290,Shopping,466.88,Crypto,23,Central,4571
+U1002,36-45,7908,Shopping,1655.86,NetBanking,2,Central,2000
+U1003,26-35,9255,Food,398.9,Debit Card,16,South,2756
+U1004,18-25,5616,Entertainment,301.63,Wallet,2,West,1668
+U1005,18-25,12883,Education,725.15,Credit Card,15,South,1460
+U1006,18-25,6519,Healthcare,773.79,Debit Card,3,West,3636
+U1007,46-60,2257,Travel,1397.43,NetBanking,17,West,2724
+U1008,36-45,8074,Entertainment,183.12,Crypto,16,Central,4809
+U1009,36-45,6874,Entertainment,484.07,UPI,6,North,4178
+U1010,18-25,7392,Shopping,594.05,NetBanking,23,North,2048
+U1011,46-60,2178,Food,1024.39,Crypto,22,East,4146
+U1012,36-45,3742,Food,31.21,Wallet,4,Central,4780
+U1013,18-25,5136,Healthcare,3648.56,NetBanking,11,West,716
+U1014,18-25,1559,Shopping,444.34,UPI,16,North,4544
+U1015,18-25,7168,Entertainment,229.53,Crypto,22,West,4976
+U1016,26-35,13971,Education,1504.87,Crypto,12,North,4583
+U1017,26-35,10414,Shopping,964.05,Crypto,22,North,1823
+U1018,26-35,12006,Healthcare,2141.4,Wallet,2,North,2081
+U1019,26-35,3657,Healthcare,281.12,NetBanking,8,Central,3419
+U1020,36-45,6415,Shopping,563.27,Wallet,16,South,1574
+U1021,18-25,11317,Healthcare,594.52,Credit Card,16,West,249
+U1022,26-35,11421,Shopping,2750.12,Credit Card,19,Central,673
+U1023,26-35,10289,Travel,54.84,NetBanking,15,Central,4533
+U1024,26-35,11752,Shopping,255.39,Wallet,21,Central,2165
+U1025,36-45,3193,Shopping,148.29,UPI,12,Central,770
+U1026,18-25,13583,Healthcare,218.84,Crypto,18,Central,3962
+U1027,26-35,13839,Healthcare,464.89,Crypto,16,East,4363
+U1028,26-35,14431,Food,326.42,NetBanking,3,West,1984
+U1029,18-25,4127,Food,351.41,Credit Card,11,Central,1077
+U1030,36-45,10055,Travel,1301.49,Credit Card,8,West,235
+U1031,18-25,10673,Food,1861.65,Crypto,18,East,388
+U1032,18-25,5950,Shopping,51.11,NetBanking,11,East,3037
+U1033,46-60,2163,Healthcare,164.05,Wallet,8,West,4858
+U1034,46-60,10221,Food,778.49,Credit Card,6,North,1848
+U1035,36-45,10730,Food,310.92,Wallet,13,South,4719
+U1036,26-35,6092,Travel,205.27,Credit Card,19,North,2814
+U1037,18-25,11994,Entertainment,244.98,Credit Card,18,North,3374
+U1038,36-45,10929,Travel,272.59,Debit Card,14,North,3278
+U1039,26-35,7892,Shopping,1321.8,Credit Card,15,Central,1252
+U1040,18-25,14196,Healthcare,102.83,UPI,20,East,3981
+U1041,26-35,14188,Travel,863.89,NetBanking,4,North,4673
+U1042,18-25,1806,Food,563.36,NetBanking,2,East,2122
+U1043,46-60,12721,Healthcare,246.19,Wallet,11,West,4530
+U1044,26-35,7276,Healthcare,381.04,Credit Card,19,South,2150
+U1045,36-45,11367,Food,207.19,UPI,20,West,4859
+U1046,26-35,13760,Travel,661.85,Wallet,3,West,1329
+U1047,26-35,6364,Food,59.58,Debit Card,20,Central,1358
+U1048,26-35,9974,Entertainment,5.0,Wallet,22,South,2482
+U1049,18-25,8026,Healthcare,692.0,Wallet,15,West,4542
+U1050,46-60,9401,Education,151.21,Credit Card,6,West,2017
+U1051,36-45,6075,Education,51.51,Debit Card,12,South,1331
+U1052,46-60,6030,Shopping,353.84,Wallet,20,South,4344
+U1053,46-60,13436,Food,36.47,UPI,9,West,4261
+U1054,26-35,4913,Food,1523.89,UPI,6,South,1358
+U1055,46-60,4248,Shopping,19.6,NetBanking,13,West,4637
+U1056,18-25,14045,Shopping,605.36,Debit Card,4,West,4854
+U1057,18-25,13471,Shopping,403.97,Debit Card,2,Central,3177
+U1058,18-25,1163,Healthcare,780.37,NetBanking,22,North,2128
+U1059,26-35,2498,Entertainment,278.41,Wallet,10,West,2180
+U1060,26-35,8494,Food,117.93,Debit Card,10,East,4892
+U1061,26-35,12137,Healthcare,2806.01,UPI,17,North,137
+U1062,36-45,12435,Shopping,1278.16,UPI,14,North,3472
+U1063,26-35,14419,Food,1378.31,Credit Card,11,North,2832
+U1064,26-35,1995,Healthcare,201.61,Debit Card,8,Central,3579
+U1065,26-35,3804,Entertainment,27.73,Wallet,9,West,3031
+U1066,18-25,4263,Healthcare,252.95,NetBanking,11,Central,4164
+U1067,36-45,5732,Entertainment,539.14,NetBanking,16,West,2593
+U1068,18-25,2353,Shopping,276.84,Wallet,5,Central,4300
+U1069,46-60,14308,Entertainment,1231.65,Crypto,6,Central,3818
+U1070,36-45,7085,Food,221.78,Credit Card,13,East,4138
+U1071,18-25,13351,Shopping,2351.74,NetBanking,12,Central,3823
+U1072,18-25,1791,Food,427.79,Debit Card,7,South,4042
+U1073,36-45,4081,Education,1291.71,Credit Card,9,East,1906
+U1074,36-45,12149,Travel,151.3,Debit Card,8,Central,760
+U1075,36-45,8054,Entertainment,370.95,UPI,17,North,3445
+U1076,36-45,7780,Travel,841.64,Credit Card,1,South,899
+U1077,18-25,2136,Travel,104.24,NetBanking,4,South,4455
+U1078,26-35,4196,Entertainment,99.7,Credit Card,4,South,2947
+U1079,18-25,11691,Shopping,2443.87,Credit Card,5,East,1719
+U1080,46-60,11844,Education,877.69,Credit Card,18,Central,280
+U1081,36-45,1198,Food,29.35,Crypto,7,Central,3266
+U1082,26-35,10852,Healthcare,356.2,Credit Card,15,North,1887
+U1083,18-25,12789,Food,397.82,Debit Card,12,North,3266
+U1084,26-35,5237,Healthcare,953.92,UPI,0,South,666
+U1085,26-35,14377,Food,202.18,Wallet,21,North,4188
+U1086,36-45,1354,Entertainment,142.62,Credit Card,19,East,671
+U1087,36-45,8664,Education,59.03,NetBanking,16,Central,1969
+U1088,46-60,6355,Healthcare,391.42,Credit Card,6,South,4156
+U1089,26-35,7892,Shopping,816.45,NetBanking,12,North,3122
+U1090,18-25,7028,Food,41.97,Debit Card,3,East,4699
+U1091,36-45,12166,Food,1727.34,NetBanking,3,East,4777
+U1092,36-45,14449,Healthcare,408.82,Wallet,5,North,3900
+U1093,26-35,5749,Shopping,191.91,UPI,18,Central,523
+U1094,36-45,5672,Shopping,69.0,NetBanking,11,North,2393
+U1095,26-35,2207,Entertainment,141.37,NetBanking,21,South,3117
+U1096,26-35,11469,Entertainment,1909.21,UPI,6,North,2593
+U1097,26-35,6291,Entertainment,711.8,Wallet,9,East,1968
+U1098,18-25,10425,Entertainment,508.98,Credit Card,18,North,1753
+U1099,18-25,6035,Entertainment,749.24,NetBanking,6,Central,2296

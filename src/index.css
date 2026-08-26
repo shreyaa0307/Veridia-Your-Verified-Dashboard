@@ -1,0 +1,243 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Futuristic Dark Theme */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 5% 6%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 263 70% 50%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 5% 6%;
+    --muted-foreground: 240 5% 64.9%;
+
+    --accent: 263 70% 50%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 6% 20%;
+    --input: 240 6% 10%;
+    --ring: 263 70% 50%;
+
+    --radius: 0.75rem;
+
+    /* Futuristic Color Palette */
+    --neon-blue: 200 100% 50%;
+    --neon-purple: 263 70% 50%;
+    --neon-cyan: 180 100% 50%;
+    --neon-pink: 330 100% 70%;
+    --cyber-green: 120 100% 50%;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--neon-blue)) 0%, hsl(var(--neon-purple)) 100%);
+    --gradient-secondary: linear-gradient(135deg, hsl(var(--neon-purple)) 0%, hsl(var(--neon-pink)) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(var(--neon-cyan)) 0%, hsl(var(--cyber-green)) 100%);
+    
+    /* Glassmorphism */
+    --glass-bg: hsla(240, 10%, 3.9%, 0.7);
+    --glass-border: hsla(240, 6%, 20%, 0.3);
+    
+    /* Shadows and Glows */
+    --glow-primary: 0 0 20px hsla(var(--neon-blue), 0.5);
+    --glow-secondary: 0 0 20px hsla(var(--neon-purple), 0.5);
+    --glow-accent: 0 0 20px hsla(var(--neon-cyan), 0.5);
+    
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-inter;
+    background: 
+      radial-gradient(circle at 20% 50%, hsla(var(--neon-blue), 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, hsla(var(--neon-purple), 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 40% 80%, hsla(var(--neon-cyan), 0.05) 0%, transparent 50%),
+      hsl(var(--background));
+  }
+}
+
+@layer components {
+  /* Glassmorphism card */
+  .glass-card {
+    @apply backdrop-blur-xl border border-white/10 rounded-xl;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: 
+      0 8px 32px 0 rgba(31, 38, 135, 0.37),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  }
+
+  /* Neon button */
+  .neon-button {
+    @apply relative overflow-hidden rounded-lg font-semibold transition-all duration-300;
+    background: var(--gradient-primary);
+    box-shadow: var(--glow-primary);
+  }
+
+  .neon-button::before {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-300;
+    background: var(--gradient-secondary);
+  }
+
+  .neon-button:hover::before {
+    @apply opacity-100;
+  }
+
+  .neon-button:hover {
+    @apply scale-105;
+    box-shadow: var(--glow-secondary);
+  }
+
+  /* Animated text gradient */
+  .gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradient-shift 3s ease-in-out infinite;
+  }
+
+  /* Pulsing glow */
+  .pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite alternate;
+  }
+
+  /* File upload area */
+  .upload-area {
+    @apply relative border-2 border-dashed rounded-xl transition-all duration-300;
+    border-color: hsl(var(--border));
+  }
+
+  .upload-area.dragover {
+    border-color: hsl(var(--neon-cyan));
+    box-shadow: var(--glow-accent);
+    background: hsla(var(--neon-cyan), 0.05);
+  }
+
+  /* Interactive underline */
+  .interactive-underline {
+    @apply relative;
+  }
+
+  .interactive-underline::after {
+    content: '';
+    @apply absolute bottom-0 left-0 w-full h-0.5 origin-left transform scale-x-0 transition-transform duration-300;
+    background: var(--gradient-accent);
+    box-shadow: var(--glow-accent);
+  }
+
+  .interactive-underline:hover::after {
+    @apply scale-x-100;
+  }
+}
+
+@layer utilities {
+  /* Animation keyframes */
+  @keyframes gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  @keyframes pulse-glow {
+    0% { box-shadow: var(--glow-primary); }
+    100% { box-shadow: var(--glow-secondary), var(--glow-accent); }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+}

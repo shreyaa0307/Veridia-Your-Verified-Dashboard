@@ -1,0 +1,347 @@
+{
+  "examples": [
+    {
+  "id": "gradient_descent_regression",
+  "title": "Gradient Descent for Linear Regression Across Function Patterns",
+  "dataset_description": "This dataset simulates noisy observations of various true functions (`constant`, `linear_up`, `linear_down`, `quadratic`, and `sin`) over a range of input values. For each function, a linear regression model is trained using gradient descent with multiple step sizes. The dataset includes the predicted values, residuals, loss surfaces over a slope-intercept grid, and the full training trajectory across iterations for each step size and pattern.",
+  "analysis_notes": [
+    "`geom_point` is used in multiple contexts: to plot the original data points, visualize model predictions, and mark weight positions (intercept, slope) on the loss surface. It also identifies selected iterations with white/black point markers.",
+    "`geom_segment` visualizes vertical residual lines between observed and predicted values (errors), and gradient update vectors in the loss grid panel, helping interpret descent directions over the loss landscape.",
+    "`geom_line` traces the predicted regression line and plots the loss curve across iterations, separated by pattern and step size. This helps illustrate convergence behavior under different learning rates.",
+    "`geom_tile` shows the relative loss over a 2D grid of slope and intercept values using a heatmap. This provides spatial intuition of where the optimization is moving within parameter space.",
+    "`geom_tallrect` highlights the currently selected iteration across loss panels to link time-based selection with model predictions and loss landscape.",
+    "`facet_grid` is applied to the loss curve panel to separate plots by true function pattern. This supports comparison of optimization behavior across functions.",
+    "`scale_fill_gradient` encodes relative loss intensity in the loss grid panel using a red-white gradient, aiding perception of optimal and poor regions.",
+    "`scale_color_manual` assigns consistent color mappings to different step sizes in loss curves, enhancing interpretability across learning rate scenarios.",
+    "`clickSelects` and `showSelected` are extensively used to link user interactions with updates to predictions, gradients, and loss views based on selected `pattern.step` and `iteration`.",
+    "Three coordinated panels are defined: `data` (showing the regression fit and residuals), `lossIterations` (loss over iterations), and `lossGrid` (loss surface and gradient vectors). All are synchronized via `pattern.step` and `iteration` for interactive exploration of training dynamics.",
+    "Animations are defined for both `pattern.step` and `iteration`, enabling stepwise observation of gradient descent progress on both model and loss surface over time."
+  ],
+  "visualization_tags": [
+    "regression",
+    "gradient descent",
+    "optimization",
+    "linear model",
+    "loss landscape",
+    "interactive",
+    "animation",
+    "training visualization"
+  ],
+  "geom_used": [
+    "geom_point",
+    "geom_segment",
+    "geom_line",
+    "geom_tile",
+    "geom_tallrect",
+    "facet_grid"
+  ],
+  "code_snippet": "gradient_descent_code"
+},
+    {
+  "id": "neural_vs_linear_classification",
+  "title": "Neural Network vs. Linear Model on Simulated Classification Task",
+  "dataset_description": "This dataset contains synthetic 2D features for binary classification, generated with hidden ground-truth rules and injected Gaussian noise. Data points are labeled using a Bayes decision boundary and divided into subtrain and validation sets. It includes model predictions, error rates, and loss metrics across training iterations for both a neural network and a linear model, enabling exploration of learning dynamics and classification behavior over time.",
+  "analysis_notes": [
+    "`geom_point` is used extensively to plot data points, classification errors, and predictions. Labels are encoded with color and fill, while misclassified points are emphasized.",
+    "`geom_tile` represents the classifier decision surface over a grid of feature values. Color intensity indicates prediction strength, and tiles update with `showSelected` across iterations.",
+    "`geom_path` draws decision boundary contours inferred from model predictions, providing a visual cue of how each model learns the class boundary.",
+    "`geom_tallrect` allows users to interactively select specific training iterations by clicking on vertical rectangles overlaid on the loss curve. These selections trigger updates to the classifier visualization.",
+    "`geom_text` displays summary performance metrics (loss, error count, and percentage) as text labels in the decision surface panel, giving immediate feedback on model quality.",
+    "`facet_grid` organizes multiple subplots by model type and iteration, helping compare how each model evolves during training and on different data partitions (subtrain vs validation).",
+    "`scale_fill_gradient2` is used in multiple plots to encode prediction confidence and class scores with a diverging color scale.",
+    "`clickSelects` and `showSelected` are used throughout to link iteration selections between the loss panel and prediction visualizations, enabling interactive exploration of training progress.",
+    "Two coordinated panels are defined: `loss` (shows training/validation loss and error curves) and `data` (visualizes classifier decision boundaries, prediction errors, and class scores). These panels are tightly linked by the selected `model.iteration` variable.",
+    "A custom backpropagation training loop is implemented using autodiff with environments to simulate a neural network learning process from scratch, allowing real-time visualization of training."
+  ],
+  "visualization_tags": [
+    "classification",
+    "machine learning",
+    "neural network",
+    "linear model",
+    "training dynamics",
+    "interactive",
+    "loss function",
+    "simulation"
+  ],
+  "geom_used": [
+    "geom_point",
+    "geom_tile",
+    "geom_path",
+    "geom_tallrect",
+    "geom_text",
+    "facet_grid"
+  ],
+  "code_snippet": "neural_linear_code"
+},
+    {
+  "id": "intreg_BIC_segmentation",
+  "title": "Interactive Visualization of Segmentation and Model Selection",
+  "dataset_description": "This visualization compares segmented regression fits with model selection metrics (BIC and error) across genomic signals. It enables exploration of how segmentation complexity influences both data approximation and model selection criteria, using linked visual elements across panels.",
+  "analysis_notes": [
+    "`geom_point` is used in two contexts: in the upper panel to show original data points for each signal, and in the lower panel to show discrete values of BIC and unpenalized error for each segmentation level.",
+    "`geom_segment` in the upper panel displays horizontal lines representing segment means for a given number of segments. These lines dynamically update with the selected signal and segment count.",
+    "`geom_line` is applied in the lower panel to connect BIC and error values over increasing segment counts, forming visual curves for evaluating model complexity.",
+    "`geom_tallrect` creates a vertical highlight over the selected number of segments in the lower panel, which also controls the displayed segmentation fit in the upper panel. This visually synchronizes user interaction between both panels.",
+    "`geom_text` adds dynamic labels (e.g., `Signal = X`) for contextual clarity in each signal’s facet, helping track current selections.",
+    "`facet_grid` is used in both panels to split views by signal, maintaining consistent layout across multiple signals for comparison.",
+    "`clickSelects` allows the user to interactively choose a signal or number of segments; this input drives coordinated updates across both panels.",
+    "`showSelected` filters which segment lines, BIC/error points, and tallrects are shown based on current interaction state, ensuring that only relevant visual layers are active.",
+    "The top panel (data + segment means) and bottom panel (BIC/error curves) are tightly linked: changing the selected segment count via clicking the lower plot immediately updates the fitted means in the top plot. This coordination allows users to visually assess overfitting or underfitting by seeing both prediction accuracy and model cost side-by-side.",
+    "The entire visual is structured to promote **interactive hypothesis testing**: users can explore how model complexity impacts both statistical metrics and real-data fit through tightly coupled animations and selections."
+  ],
+  "visualization_tags": [
+    "interactive",
+    "model selection",
+    "segmentation",
+    "coordinated views",
+    "linked brushing",
+    "statistical visualization"
+  ],
+  "geom_used": [
+    "geom_point",
+    "geom_segment",
+    "geom_line",
+    "geom_tallrect",
+    "geom_text",
+    "facet_grid"
+  ],
+  "code_snippet": "intreg_BIC_code"
+},
+    {
+  "id": "montreal_bike_traffic",
+  "title": "Interactive Exploration of Montreal Bike Traffic Trends",
+  "dataset_description": "This visualization allows users to explore daily bicycle traffic across various Montreal locations over time. It features coordinated views that connect temporal trends, location-wise activity, and weather effects through interactive plots. The dataset includes daily counts of bicycles, day of the week, weather conditions, and location identifiers.",
+  "analysis_notes": [
+    "`geom_line` is used in multiple panels to show time series of bike traffic volume across dates. It dynamically updates based on user selection of location and time window, supporting comparison of trends.",
+    "`geom_point` is used to highlight specific days or summary statistics, such as average traffic per day of the week, helping identify patterns like weekday-weekend variation.",
+    "`geom_tallrect` highlights selected date ranges, visually linking temporal selections across all panels and helping users focus on specific time windows.",
+    "`geom_bar` aggregates bike counts by weekday, providing a compact summary of weekly patterns and enabling comparison across locations. It supports `clickSelects` so users can click a bar to update other views to that day’s data.",
+    "`geom_text` is used for dynamic axis labels, plot titles, and annotations to guide the user and contextualize what’s currently being viewed (e.g., which day or location is selected).",
+    "`facet_grid` is applied to some panels to separate plots by location or weekday, enabling simultaneous comparison across categories while preserving axis alignment.",
+    "`clickSelects` enables users to interactively choose a location or weekday, which then filters and updates the time series, bar chart, and selected tallrects across views.",
+    "`showSelected` ensures that only the relevant lines, bars, or tallrects for the selected time range and location are visible, reducing visual clutter and focusing attention.",
+    "Panels are linked through `clickSelects` and `showSelected`: clicking a weekday bar updates the time series to show that day’s traffic across locations; clicking a date range updates both the line chart and summary statistics accordingly. This coordination builds a story of how temporal and spatial factors interact in urban bike usage.",
+    "Together, these visual elements allow users to conduct exploratory analysis — detecting peak traffic patterns, effects of weather or weekdays, and identifying anomalous drops or spikes in usage across the city."
+  ],
+  "visualization_tags": [
+    "bike traffic",
+    "interactive",
+    "time series",
+    "weekday trends",
+    "urban mobility",
+    "linked plots"
+  ],
+  "geom_used": [
+    "geom_line",
+    "geom_point",
+    "geom_bar",
+    "geom_tallrect",
+    "geom_text",
+    "facet_grid"
+  ],
+  "code_snippet": "montreal_bike_code"
+},
+    {
+  "id": "chipseq_peak_alignment",
+  "title": "ChIP-seq Peak Alignment and Model Comparison",
+  "dataset_description": "This visualization explores the behavior of ChIP-seq peak detection models on unaligned genomic data. It presents model predictions across chromosomes, highlighting differences in segmentation and peak calls. Users can interactively compare model behavior over specific regions, facilitating in-depth error analysis and visual quality control.",
+  "analysis_notes": [
+    "`geom_rect` is used to show predicted peak regions as horizontal bands across the genome. It visually distinguishes where each model detects peaks and helps compare overlapping predictions across models.",
+    "`geom_segment` draws vertical lines representing breakpoints or changepoints in the predicted signal, giving insight into how models segment the genome based on read coverage.",
+    "`geom_line` plots the raw or smoothed read count signal over the genomic coordinate axis, serving as a reference to evaluate the validity of model predictions (i.e., how well peaks align with high read regions).",
+    "`geom_text` is used for dynamic annotations, such as model labels or genomic position markers, aiding interpretability without crowding the plot.",
+    "`geom_tallrect` highlights a zoomed-in region selected by the user for focused analysis. This is coordinated across panels, linking high-level views with detailed local inspections.",
+    "`clickSelects` enables users to select a specific genomic region or model variant, which updates all panels to reflect that choice, aligning zoom and annotations across views.",
+    "`showSelected` ensures that only elements relevant to the selected model and genomic region are displayed, improving focus and reducing clutter.",
+    "The main panel shows genome-wide model predictions, while a zoomed panel (controlled via `geom_tallrect`) presents fine-grained signal data, changepoints, and peaks. This two-level visual organization helps bridge the gap between large-scale overview and base-level detail.",
+    "Interactive coordination enables deep comparisons — users can click on a model name or region and instantly observe how its predictions differ from others both globally and locally.",
+    "This design allows researchers to validate peak calling models visually, find over- or under-segmented areas, and diagnose inconsistencies in ChIP-seq peak detection."
+  ],
+  "visualization_tags": [
+    "ChIP-seq",
+    "genomics",
+    "peak detection",
+    "model comparison",
+    "interactive",
+    "zoom",
+    "segmentation"
+  ],
+  "geom_used": [
+    "geom_rect",
+    "geom_segment",
+    "geom_line",
+    "geom_text",
+    "geom_tallrect"
+  ],
+  "code_snippet": "chipseq_peak_code"
+},
+    {
+  "id": "us_tornadoes_by_state",
+  "title": "Tornado Events and Frequencies Across U.S. States",
+  "dataset_description": "This visualization presents tornado data across U.S. states over multiple years, enabling interaction between a geospatial map of tornado paths and a time series bar chart of tornado counts. Users can explore tornado patterns by selecting states or years, making connections between where and when tornadoes occurred.",
+  "analysis_notes": [
+    "`geom_segment` draws tornado paths on the U.S. map, connecting start and end coordinates for each tornado. These are shown only for the selected year using `showSelected='year'`.",
+    "`geom_point` plots tornado endpoints over the map as an additional spatial cue, also filtered by year.",
+    "`geom_text` overlays a large dynamic label on the map to indicate the currently selected year (e.g., 'Tornado paths and endpoints in 1990').",
+    "`geom_polygon` draws state boundaries using the `maps` package. These polygons respond to `clickSelects='state'`, so clicking a state filters the bar chart to show only that state’s tornado counts.",
+    "`geom_bar` on the time series panel shows the number of tornadoes per year for the selected state. This bar chart updates based on `clickSelects='year'` and `showSelected='state'`, so clicking a bar selects a year, and selecting a state updates the chart.",
+    "`geom_text` on the time series shows the name of the selected state and tornado counts above bars for the selected year and state — making it easy to interpret quantitative values without hovering.",
+    "The dashboard is fully linked: clicking a year filters the map to show tornadoes that year, and clicking a state shows that state’s tornado counts over time in the bar chart. This cross-highlighting creates a seamless visual drill-down experience.",
+    "The `theme_animint()` settings ensure appropriate sizing and layout for both map and time series plots, ensuring the map is wider (750px) and timeline is taller (400px), matching their visual purpose."
+  ],
+  "visualization_tags": [
+    "tornado",
+    "usa",
+    "geospatial",
+    "time series",
+    "state-level analysis",
+    "interactive dashboard"
+  ],
+  "geom_used": [
+    "geom_polygon",
+    "geom_segment",
+    "geom_point",
+    "geom_bar",
+    "geom_text"
+  ],
+  "code_snippet": "us_tornadoes_by_state_code"
+},
+    {
+  "id": "necromass_chipseq_bacteria_fungi",
+  "title": "Interaction Network and Pairwise Abundance of Bacteria and Fungi",
+  "dataset_description": "This interactive dashboard visualizes ecological interactions between bacterial and fungal taxa based on necromass decomposition chip-seq data. It uses a circular network layout to depict relationships and an abundance scatter plot to analyze pairwise correlations. The interface allows users to click an edge (representing a taxon pair) to explore their normalized abundance correlation.",
+  "analysis_notes": [
+    "`geom_segment` draws edges between taxa nodes in a circular network layout. Each edge connects two taxa and is colored by the correlation sign (positive or negative). These edges are clickable (`clickSelects='pair'`), allowing detailed analysis of that specific taxon pair in the scatter plot.",
+    "`geom_point` plots each taxon as a node in a circular arrangement, with positioning based on polar coordinates. Bacteria and fungi are distinguished using the `fill` aesthetic and a manual color scale.",
+    "`geom_point` in the second plot shows the normalized abundance of the selected pair. This scatter plot updates dynamically based on the selected edge from the network graph.",
+    "`geom_text` overlays the names of the two selected taxa onto the scatter plot. The labels are placed on the respective axes, allowing easy identification without cluttering the main plot area.",
+    "The network plot is visually minimalistic (no grid or axes), making it easier to focus on node relationships and edge weights. The circular layout emphasizes symmetry between bacterial and fungal groups.",
+    "Color and position encode both biological domain (kingdom) and interaction type (positive/negative correlation), which are critical to interpreting ecological relationships.",
+    "`theme()` customizations remove unnecessary visual noise, making the network layout clean and focused on interactions."
+  ],
+  "visualization_tags": [
+    "bacteria",
+    "fungi",
+    "ecology",
+    "interaction network",
+    "correlation analysis",
+    "scatter plot",
+    "circular layout",
+    "click-to-explore"
+  ],
+  "geom_used": [
+    "geom_segment",
+    "geom_point",
+    "geom_text"
+  ],
+  "code_snippet": "necromass_chipseq_bacteria_fungi_code"
+},
+    {
+      "id": "worldbank_fertility_life_expectancy_facets_map",
+      "title": "World Bank: Fertility Rate vs Life Expectancy (Map + Time Series)",
+      "dataset_description": "This dataset compiles country-level indicators from the World Bank, including fertility rate, life expectancy, population, region, and coordinates. The visualization integrates these indicators to enable interactive exploration across geographic space and temporal trends from 1960 to 2010.",
+      "analysis_notes": [
+        "`geom_polygon` is used to render the world map, with countries filled by `Region`. It uses `clickSelects` to allow country selection through map interaction.",
+        "`geom_point` shows countries in a scatterplot of fertility rate vs life expectancy for each year, with point size proportional to population. It supports `clickSelects` and `showSelected` to filter by country and year.",
+        "`geom_path` plots a time series of fertility rate over years for selected countries, creating longitudinal traces in the fertility–year facet.",
+        "`geom_line` displays life expectancy over time for selected countries, forming continuous trend lines in the year–life expectancy facet.",
+        "`geom_text` is used to label countries in the scatterplot and time series views, dynamically adjusting based on selected countries and years using `showSelected`.",
+        "`geom_label_aligned` enhances label placement by aligning text (either horizontally or vertically) to improve readability and reduce overlaps, especially in facets with densely packed data.",
+        "`geom_tallrect` and `make_tallrect` highlight the currently selected year across all facet panels to guide user attention temporally.",
+        "`make_widerect` and `geom_label_aligned` are used together in the fertility–year facet to show a labeled selector for years, aiding user orientation across time.",
+        "`facet_grid` is used to split the visualization into a 2x2 matrix: scatterplot, time series, map, and fertility trend view, allowing concurrent inspection of multiple dimensions.",
+        "The visual includes `clickSelects` and multiple selectors to enable selection of multiple countries and animation over the `year` selector, providing a rich, narrative experience."
+      ],
+      "visualization_tags": [
+        "development","health","fertility","life expectancy","interactive","facet grid","temporal","geospatial","labeling"
+      ],
+      "geom_used": [
+        "geom_polygon",
+        "geom_point",
+        "geom_path",
+        "geom_line",
+        "geom_text",
+        "geom_label_aligned",
+        "geom_tallrect"
+      ],
+      "code_snippet": "worldbank_fertility_code"
+    },
+    {
+      "id": "central_american_temperature_maps",
+      "title": "Central American Temperature Maps",
+      "dataset_description": "This dataset includes temperature and surface temperature readings across various Central American regions, recorded over time. Monthly deviations from long-term means are computed to visualize both absolute and relative climatic changes. The data supports temporal and spatial analysis using interactive linked views.",
+      "analysis_notes": [
+        "`geom_tile` is used on maps to show gridded values of surface temperature (`surftemp`) and deviation from monthly norm (`surfdev`) across geographical regions, animated over time using `showSelected = 'time2'`.",
+        "`geom_path` overlays country borders from `map_data('world')` for geographical reference.",
+        "`geom_text` adds a date label (`textdate`) directly on map panels for clarity when animating through time.",
+        "`geom_point` is used in two scatter plots to show the relationship between surface temperature and deviation, once for a selected time (`scatterNow`) and once for a selected region (`scatterHere`). Larger, colored points highlight the selected `id` or `time2` respectively using `showSelected`.",
+        "`geom_line` draws time series of surface temperature and deviation per region over time in the `surftempTimeSeries` and `surfdevTimeSeries` panels. Selected region traces are emphasized using thicker colored lines.",
+        "`geom_tallrect` highlights the selected time period (`time2`) as a vertical band in both time series plots, allowing users to focus on the animated year.",
+        "`make_text` dynamically generates facet-level labels (e.g., region name) for scatter plots when selected, enhancing interpretability.",
+        "`facet_grid` is not explicitly used but layout is logically split into multiple coordinated panels: two maps, two scatter plots, and two time series plots, each serving distinct analytical views.",
+        "Selectors for both time (`time2`) and region (`id`) are enabled with `clickSelects`, and animations smoothly transition using defined `duration` parameters.",
+        "A video link and GitHub source are included to provide further documentation and usage demonstration."
+      ],
+      "visualization_tags": [
+        "climate",
+        "temperature",
+        "interactive",
+        "spatial",
+        "temporal",
+        "deviation",
+        "geospatial",
+        "linked views",
+        "animation"
+      ],
+      "geom_used": [
+        "geom_tile",
+        "geom_path",
+        "geom_text",
+        "geom_point",
+        "geom_line",
+        "geom_tallrect"
+      ],
+      "complexity": "very high",
+      "code_snippet": "central_american_temperature_code"
+    },
+    {
+      "id": "lopart_algorithm_visualization",
+      "title": "LOPART Algorithm Visualization for Segmentation Candidates",
+      "dataset_description": "This dataset consists of time-series signal data and computed cost metrics for multiple segmentation models (OPART and LOPART). It includes model segmentations, cost candidates, signal labels, and penalty-based selections across different values of `up.to.t` and `last.change`. The interactive visualization allows users to explore how cost and segmentation decisions vary over time, across algorithms and penalties.",
+      "analysis_notes": [
+        "`geom_point` displays the signal values and also plots cost values as colored dots per segmentation candidate. It distinguishes between OPART and LOPART using color and size.",
+        "`geom_segment` visualizes the estimated segment means for each model (OPART, LOPART) over selected time ranges. These are updated interactively using `showSelected` and `chunk_vars`.",
+        "`geom_tile` shows a heatmap of relative costs over a 2D grid of `up.to.t` and `last.change` in the cost panel. One layer shows background cost, and another outlines the currently selected tile.",
+        "`geom_tallrect` is used in multiple panels to highlight the currently selected values of `up.to.t`, `last.change`, and penalty. These enhance visual tracking of selection changes and link different panels together.",
+        "`geom_text` labels key temporal markers such as `t =` and `tau =` on the time-series panel for easier reference to user selections.",
+        "`geom_vline` marks the `last.change` position as a vertical line to connect the cost panel with the model view.",
+        "`geom_line` in the penalty panel shows the log-log relationship between penalty and number of segments for each algorithm.",
+        "`facet_grid` is used in the cost panel to separate visualizations by algorithm (LOPART vs OPART).",
+        "`scale_fill_gradient` visually encodes the relative cost as a red-to-grey gradient to emphasize more optimal segmentations.",
+        "`clickSelects` is applied across multiple geoms to let users select values for `penalty`, `up.to.t`, and `last.change` interactively. `showSelected` enables the rest of the visualization to update in sync.",
+        "Three coordinated panels are defined: `signalCost` (data and model view), `cost` (heatmap of costs), and `penalties` (segment count per penalty). All are linked through shared variables for dynamic exploration.",
+        "Animations are defined for smooth transitions across selections using `duration`."
+      ],
+      "visualization_tags": [
+        "segmentation",
+        "time series",
+        "interactive",
+        "machine learning",
+        "optimization",
+        "cost function",
+        "model comparison"
+      ],
+      "geom_used": [
+        "geom_point",
+        "geom_segment",
+        "geom_tile",
+        "geom_tallrect",
+        "geom_text",
+        "geom_vline",
+        "geom_line",
+        "facet_grid"
+      ],
+      "code_snippet": "lopart_algorithm_code"
+    }
+  ]
+}

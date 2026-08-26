@@ -1,0 +1,151 @@
+Date,User,Workout_Type,Duration_min,Calories_Burned,Avg_HeartRate,Steps,Sleep_Hours,Mood
+2025-01-01,User_5,HIIT,82,608,149,10280,7.5,Stressed
+2025-01-02,User_2,HIIT,32,310,131,7283,6.8,Energetic
+2025-01-03,User_5,Yoga,28,225,171,12511,8.8,Stressed
+2025-01-04,User_4,Strength Training,98,1120,174,6069,6.7,Tired
+2025-01-05,User_3,Running,90,919,144,9169,5.9,Neutral
+2025-01-06,User_9,Walking,89,825,180,3950,5.4,Energetic
+2025-01-07,User_2,Running,64,526,94,5971,7.7,Tired
+2025-01-08,User_10,HIIT,55,456,143,17487,8.3,Tired
+2025-01-09,User_3,Yoga,39,437,177,7755,8.8,Energetic
+2025-01-10,User_6,Strength Training,25,242,92,18388,8.5,Neutral
+2025-01-11,User_2,Cycling,46,379,102,17349,6.3,Happy
+2025-01-12,User_5,Swimming,112,835,109,10823,5.7,Stressed
+2025-01-13,User_5,HIIT,113,1057,103,14467,8.2,Energetic
+2025-01-14,User_7,Swimming,60,700,90,15083,8.1,Happy
+2025-01-15,User_7,HIIT,119,1308,153,12908,7.0,Neutral
+2025-01-16,User_4,Swimming,62,651,135,5882,6.3,Happy
+2025-01-17,User_7,Yoga,73,579,99,8322,5.4,Stressed
+2025-01-18,User_2,Yoga,58,690,102,14033,8.7,Neutral
+2025-01-19,User_4,Yoga,72,608,165,14074,5.9,Neutral
+2025-01-20,User_5,Yoga,27,254,139,12955,7.3,Tired
+2025-01-21,User_3,Cycling,34,311,152,18378,4.9,Energetic
+2025-01-22,User_7,Cycling,113,909,146,11804,5.6,Happy
+2025-01-23,User_7,Cycling,106,1211,125,5046,7.9,Happy
+2025-01-24,User_3,Strength Training,116,983,143,14494,8.5,Tired
+2025-01-25,User_7,HIIT,94,843,151,19685,6.4,Tired
+2025-01-26,User_5,Cycling,55,572,130,16641,6.2,Happy
+2025-01-27,User_7,Running,35,314,111,3530,4.4,Energetic
+2025-01-28,User_5,Walking,105,793,91,5241,4.9,Happy
+2025-01-29,User_5,Walking,92,660,133,8769,8.8,Happy
+2025-01-30,User_10,Swimming,63,617,112,4040,6.9,Tired
+2025-01-31,User_5,Walking,95,1127,147,11372,7.6,Stressed
+2025-02-01,User_2,Yoga,65,723,102,19250,8.9,Happy
+2025-02-02,User_5,Strength Training,83,921,92,17977,5.0,Energetic
+2025-02-03,User_5,Cycling,74,696,133,9239,4.6,Energetic
+2025-02-04,User_8,Walking,28,244,164,5734,8.9,Happy
+2025-02-05,User_10,Swimming,25,191,173,5301,8.5,Tired
+2025-02-06,User_3,Walking,102,1112,178,16892,5.7,Happy
+2025-02-07,User_3,Walking,118,1091,156,9088,4.7,Energetic
+2025-02-08,User_5,Swimming,93,813,121,9931,7.5,Happy
+2025-02-09,User_3,Swimming,34,339,127,11334,7.2,Tired
+2025-02-10,User_8,HIIT,100,897,110,16808,7.0,Tired
+2025-02-11,User_2,Cycling,67,519,125,13176,7.1,Energetic
+2025-02-12,User_10,Strength Training,46,404,98,4651,8.1,Stressed
+2025-02-13,User_6,Strength Training,23,252,152,12781,5.3,Neutral
+2025-02-14,User_1,Cycling,46,356,107,11716,5.0,Stressed
+2025-02-15,User_2,Running,107,754,141,5125,7.4,Neutral
+2025-02-16,User_3,Running,46,539,130,18523,5.2,Neutral
+2025-02-17,User_3,HIIT,42,410,142,13833,7.3,Tired
+2025-02-18,User_4,Yoga,105,949,138,7298,8.7,Happy
+2025-02-19,User_5,Cycling,81,638,123,11811,6.9,Happy
+2025-02-20,User_6,Running,55,623,180,8188,7.6,Tired
+2025-02-21,User_3,Yoga,47,440,100,7550,7.3,Happy
+2025-02-22,User_3,HIIT,59,656,120,4900,7.6,Tired
+2025-02-23,User_7,Strength Training,27,322,150,16000,6.6,Tired
+2025-02-24,User_5,Cycling,50,475,108,6930,7.9,Tired
+2025-02-25,User_5,HIIT,120,1298,121,13545,4.9,Stressed
+2025-02-26,User_10,Cycling,104,759,161,3804,8.3,Neutral
+2025-02-27,User_3,Strength Training,57,604,160,15836,7.5,Tired
+2025-02-28,User_1,Cycling,105,1190,162,18167,7.7,Energetic
+2025-03-01,User_6,Yoga,109,924,105,3870,8.3,Tired
+2025-03-02,User_1,Running,118,988,168,5966,4.9,Tired
+2025-03-03,User_3,Running,88,945,161,10878,8.0,Happy
+2025-03-04,User_10,Walking,45,416,131,7839,6.4,Tired
+2025-03-05,User_5,Cycling,91,929,150,10584,4.9,Energetic
+2025-03-06,User_1,Yoga,118,1137,107,4698,4.0,Energetic
+2025-03-07,User_9,Yoga,70,511,139,10108,4.3,Tired
+2025-03-08,User_2,Swimming,86,802,126,18222,5.0,Tired
+2025-03-09,User_4,HIIT,75,717,126,5940,7.0,Tired
+2025-03-10,User_4,Yoga,64,634,165,10934,4.2,Energetic
+2025-03-11,User_2,Cycling,32,261,115,11884,7.0,Happy
+2025-03-12,User_8,Walking,57,588,109,13886,8.8,Neutral
+2025-03-13,User_2,Swimming,69,805,118,16922,7.8,Energetic
+2025-03-14,User_9,Running,114,939,152,19017,7.6,Happy
+2025-03-15,User_10,Cycling,23,257,180,7841,6.7,Energetic
+2025-03-16,User_10,Walking,70,546,162,7786,6.2,Energetic
+2025-03-17,User_2,Yoga,25,288,108,14203,4.5,Neutral
+2025-03-18,User_5,Running,63,744,105,4578,6.5,Neutral
+2025-03-19,User_8,Running,55,494,127,12814,7.4,Energetic
+2025-03-20,User_5,Running,35,408,180,3550,6.1,Energetic
+2025-03-21,User_6,Swimming,77,768,126,9083,6.9,Energetic
+2025-03-22,User_7,Running,40,299,132,17109,7.2,Neutral
+2025-03-23,User_7,Cycling,42,383,141,4569,6.8,Happy
+2025-03-24,User_4,Swimming,94,789,146,10822,7.8,Happy
+2025-03-25,User_10,Walking,27,218,102,11686,6.1,Stressed
+2025-03-26,User_1,Yoga,78,752,172,17022,6.5,Happy
+2025-03-27,User_10,Cycling,67,648,144,8624,5.4,Stressed
+2025-03-28,User_6,HIIT,36,269,141,18846,6.6,Happy
+2025-03-29,User_6,Swimming,58,627,104,13606,9.0,Tired
+2025-03-30,User_5,Cycling,86,770,91,5866,6.1,Neutral
+2025-03-31,User_8,HIIT,88,743,97,5996,4.1,Tired
+2025-04-01,User_1,Strength Training,107,1228,179,12021,5.7,Energetic
+2025-04-02,User_2,HIIT,69,823,166,9210,8.6,Happy
+2025-04-03,User_9,Walking,83,581,164,16550,6.4,Happy
+2025-04-04,User_5,HIIT,120,1244,169,5714,6.0,Happy
+2025-04-05,User_6,Swimming,102,734,174,3153,5.0,Energetic
+2025-04-06,User_10,Running,97,841,169,15957,5.8,Happy
+2025-04-07,User_3,Cycling,50,476,156,3213,6.0,Neutral
+2025-04-08,User_2,Yoga,30,212,127,12762,7.0,Stressed
+2025-04-09,User_6,Swimming,85,1005,145,18768,8.4,Stressed
+2025-04-10,User_2,Cycling,86,681,118,19200,4.8,Neutral
+2025-04-11,User_2,Cycling,100,1063,134,15750,5.3,Tired
+2025-04-12,User_9,Running,81,575,116,17086,4.2,Tired
+2025-04-13,User_4,Cycling,105,1135,97,11465,7.4,Happy
+2025-04-14,User_2,Walking,92,865,92,8262,6.5,Neutral
+2025-04-15,User_7,Yoga,73,518,152,13610,8.6,Stressed
+2025-04-16,User_2,Swimming,29,280,118,6876,4.3,Neutral
+2025-04-17,User_6,Cycling,35,408,145,19759,5.2,Tired
+2025-04-18,User_3,Running,110,1023,140,19685,8.6,Energetic
+2025-04-19,User_3,Yoga,27,234,152,17309,7.0,Tired
+2025-04-20,User_8,HIIT,75,805,172,3698,6.5,Stressed
+2025-04-21,User_7,Strength Training,101,865,123,6567,4.5,Neutral
+2025-04-22,User_4,Strength Training,83,968,133,7745,5.1,Neutral
+2025-04-23,User_5,Swimming,26,191,101,12122,4.5,Energetic
+2025-04-24,User_3,HIIT,96,1084,112,3373,4.0,Energetic
+2025-04-25,User_9,HIIT,94,946,142,18902,4.4,Happy
+2025-04-26,User_6,Swimming,110,1021,175,17186,6.3,Neutral
+2025-04-27,User_6,Strength Training,70,684,128,4218,9.0,Energetic
+2025-04-28,User_9,Walking,22,194,93,3112,7.4,Stressed
+2025-04-29,User_4,Running,66,672,130,18581,6.7,Energetic
+2025-04-30,User_10,HIIT,56,537,127,17642,7.1,Energetic
+2025-05-01,User_7,Running,80,625,131,19336,6.0,Tired
+2025-05-02,User_2,Running,36,276,123,14215,7.1,Happy
+2025-05-03,User_10,Walking,110,1059,155,18746,4.7,Happy
+2025-05-04,User_7,HIIT,104,988,126,12916,5.8,Tired
+2025-05-05,User_10,HIIT,83,683,109,9201,4.1,Neutral
+2025-05-06,User_6,Strength Training,56,535,165,12500,8.4,Neutral
+2025-05-07,User_10,Strength Training,55,399,95,5120,6.7,Tired
+2025-05-08,User_2,HIIT,55,440,174,14027,7.2,Energetic
+2025-05-09,User_2,Walking,51,542,95,15518,8.4,Tired
+2025-05-10,User_1,HIIT,115,1023,156,19698,4.9,Energetic
+2025-05-11,User_8,Cycling,37,402,175,3049,4.2,Energetic
+2025-05-12,User_5,Walking,73,611,105,17774,8.6,Stressed
+2025-05-13,User_10,Yoga,74,699,159,10031,6.3,Neutral
+2025-05-14,User_10,Swimming,98,795,106,12554,6.5,Happy
+2025-05-15,User_5,Walking,98,728,140,14865,5.3,Energetic
+2025-05-16,User_7,HIIT,67,556,153,3448,7.9,Energetic
+2025-05-17,User_4,Swimming,115,909,134,17988,6.0,Stressed
+2025-05-18,User_7,Walking,65,694,170,11674,7.6,Happy
+2025-05-19,User_5,Swimming,24,210,153,7100,8.2,Tired
+2025-05-20,User_5,Yoga,41,484,162,8333,7.4,Stressed
+2025-05-21,User_10,Strength Training,23,263,155,12692,5.1,Happy
+2025-05-22,User_7,Swimming,62,537,174,14264,8.1,Tired
+2025-05-23,User_1,Cycling,120,1423,142,6645,5.2,Neutral
+2025-05-24,User_9,Swimming,64,702,100,16185,4.2,Energetic
+2025-05-25,User_6,HIIT,26,224,135,14323,4.6,Tired
+2025-05-26,User_1,Swimming,39,346,127,15069,4.9,Tired
+2025-05-27,User_4,Strength Training,32,316,148,17220,7.7,Neutral
+2025-05-28,User_5,Running,28,295,131,16925,6.7,Happy
+2025-05-29,User_1,Swimming,56,621,123,18039,5.7,Tired
+2025-05-30,User_9,Swimming,120,1405,156,9472,7.8,Stressed

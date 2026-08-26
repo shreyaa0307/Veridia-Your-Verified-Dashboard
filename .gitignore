@@ -1,0 +1,73 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Logs
+# ──────────────────────────────────────────────────────────────────────────────
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Node / frontend
+# ──────────────────────────────────────────────────────────────────────────────
+node_modules
+dist
+dist-ssr
+*.local
+vite.config.ts.timestamp-*
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Environment / secrets  (NEVER commit these)
+# ──────────────────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env.local
+backend/.env
+*.secret
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Python / backend runtime
+# ──────────────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+*.egg
+.eggs/
+pip-wheel-metadata/
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Generated runtime data (never commit)
+# ──────────────────────────────────────────────────────────────────────────────
+backend/uploads/
+backend/generated_dashboards/
+backend/generated_visualization/
+backend/chroma_db/
+
+# Root-level chroma_db if it escaped
+chroma_db/
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Editor / OS
+# ──────────────────────────────────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
