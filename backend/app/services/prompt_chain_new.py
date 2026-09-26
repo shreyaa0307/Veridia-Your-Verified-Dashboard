@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Any, Tuple
-from groq import Groq
+from groq import APIStatusError, Groq
 import httpx
 import ast
 import re
@@ -25,15 +25,46 @@ def get_groq_client() -> Groq:
     return Groq(api_key=api_key)
 
 
-# Configuration
-MODEL_ANALYSIS = "meta-llama/llama-4-scout-17b-16e-instruct"
-MODEL_DESIGN = "openai/gpt-oss-20b"
-MODEL_CODE = "openai/gpt-oss-120b"
-MODEL_OPTIMIZE = "deepseek-r1-distill-llama-70b"
+def validate_groq_configuration() -> None:
+    """Fail early with an actionable error for invalid keys or unavailable models."""
+    client = get_groq_client()
+    try:
+        available_models = {model.id for model in client.models.list().data}
+    except APIStatusError as exc:
+        if exc.status_code in (401, 403):
+            raise ValueError(
+                "GROQ_API_KEY is invalid or not authorized. Check the key in backend/.env.local."
+            ) from exc
+        raise ValueError(
+            f"Unable to verify Groq configuration (HTTP {exc.status_code}). Check Groq availability and try again."
+        ) from exc
+
+    configured_models = {
+        MODEL_ANALYSIS,
+        MODEL_DESIGN,
+        MODEL_CODE,
+        MODEL_OPTIMIZE,
+    }
+    unavailable_models = sorted(configured_models - available_models)
+    if unavailable_models:
+        text_models = sorted([m for m in available_models if not m.startswith("whisper") and "guard" not in m])
+        suggestion = f" Available text models on your account: {', '.join(text_models)}" if text_models else ""
+        raise ValueError(
+            "Configured Groq model ID(s) are unavailable: "
+            f"{', '.join(unavailable_models)}. Update the GROQ_MODEL_* setting(s) in backend/.env.local.{suggestion}"
+        )
+
+
+# Configuration (environment-configurable with supported Groq models)
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
+MODEL_ANALYSIS = os.getenv("GROQ_MODEL_ANALYSIS", DEFAULT_GROQ_MODEL)
+MODEL_DESIGN = os.getenv("GROQ_MODEL_DESIGN", DEFAULT_GROQ_MODEL)
+MODEL_CODE = os.getenv("GROQ_MODEL_CODE", DEFAULT_GROQ_MODEL)
+MODEL_OPTIMIZE = os.getenv("GROQ_MODEL_OPTIMIZE", DEFAULT_GROQ_MODEL)
 # Toggle counter to alternate chat-edit calls between CODE and OPTIMIZE models
 CHAT_EDIT_CALL_COUNT = 0
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = "gemini-2.5-flash-lite"
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
 
 def _extract_code_blocks(text: str) -> str:
     """Utility: extract code from fenced blocks if present."""
@@ -68,21 +99,121 @@ def _normalized_code(s: str) -> str:
         return s or ""
 
 def _validate_dash_code(code: str) -> Tuple[bool, List[str]]:
-    """Lightweight static checks to reduce broken launches."""
-    issues = []
+    """Comprehensive AST and semantic validation for generated Dash applications.
+    Checks syntax, required imports, dataset usage, port/base_path handling,
+    app lifecycle, and callback sanity (e.g. duplicate callback outputs).
+    """
+    issues: List[str] = []
     s = code or ""
-    if "dash.Dash(" not in s:
+    if not s.strip():
+        return False, ["Code is empty"]
+
+    # 1. Syntax check via AST
+    try:
+        tree = ast.parse(s)
+    except SyntaxError as e:
+        return False, [f"Syntax error at line {e.lineno}: {e.msg}"]
+    except Exception as e:
+        return False, [f"AST parsing failed: {e}"]
+
+    # 2. Semantic AST checks
+    has_dash_import = False
+    has_pandas_import = False
+    has_dash_init = False
+    has_read_csv = False
+    has_main_guard = False
+    has_app_run = False
+    has_port_read = False
+    has_base_path_read = False
+    callback_outputs = []
+
+    for node in ast.walk(tree):
+        # Check imports
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "dash" or alias.name.startswith("dash."):
+                    has_dash_import = True
+                if alias.name == "pandas":
+                    has_pandas_import = True
+        elif isinstance(node, ast.ImportFrom):
+            if node.module and (node.module == "dash" or node.module.startswith("dash.")):
+                has_dash_import = True
+            if node.module and node.module == "pandas":
+                has_pandas_import = True
+
+        # Check Dash app initialization
+        if isinstance(node, ast.Call):
+            func = node.func
+            func_name = ""
+            if isinstance(func, ast.Name):
+                func_name = func.id
+            elif isinstance(func, ast.Attribute):
+                func_name = func.attr
+            if func_name in ("Dash", "dash"):
+                has_dash_init = True
+            if func_name == "read_csv":
+                has_read_csv = True
+            if func_name in ("run", "run_server"):
+                has_app_run = True
+
+        # Check __main__ guard
+        if isinstance(node, ast.If):
+            test = node.test
+            if isinstance(test, ast.Compare):
+                left = getattr(test.left, "id", "") if isinstance(test.left, ast.Name) else ""
+                if left == "__name__":
+                    for comparator in test.comparators:
+                        if isinstance(comparator, ast.Constant) and comparator.value == "__main__":
+                            has_main_guard = True
+
+        # Check callback outputs for duplicates
+        if isinstance(node, ast.FunctionDef):
+            for decorator in node.decorator_list:
+                # Catch @app.callback(Output(...), ...) or @callback(Output(...), ...)
+                if isinstance(decorator, ast.Call):
+                    dec_name = ""
+                    if isinstance(decorator.func, ast.Name):
+                        dec_name = decorator.func.id
+                    elif isinstance(decorator.func, ast.Attribute):
+                        dec_name = decorator.func.attr
+                    if dec_name == "callback":
+                        # Inspect arguments for Output
+                        for arg in decorator.args:
+                            if isinstance(arg, ast.Call):
+                                output_func = getattr(arg.func, "id", "") or getattr(arg.func, "attr", "")
+                                if output_func == "Output" and len(arg.args) >= 2:
+                                    comp_id = getattr(arg.args[0], "value", None) if isinstance(arg.args[0], ast.Constant) else None
+                                    comp_prop = getattr(arg.args[1], "value", None) if isinstance(arg.args[1], ast.Constant) else None
+                                    if comp_id and comp_prop:
+                                        target = (comp_id, comp_prop)
+                                        # Check for duplicate
+                                        if target in callback_outputs:
+                                            # Check if allow_duplicate keyword is set
+                                            has_allow_dup = any(
+                                                kw.arg == "allow_duplicate" and getattr(kw.value, "value", False) is True
+                                                for kw in arg.keywords
+                                            )
+                                            if not has_allow_dup:
+                                                issues.append(f"Duplicate callback output target: {target}")
+                                        else:
+                                            callback_outputs.append(target)
+
+    # Text-based fallback and presence checks
+    if "dash" not in s:
+        issues.append("Missing dash import")
+    if "dash.Dash(" not in s and "Dash(" not in s:
         issues.append("Missing dash app initialization")
-    if "if __name__ == '__main__':" not in s:
-        issues.append("Missing __main__ guard")
-    if "os.getenv('PORT'" not in s and 'os.getenv("PORT"' not in s:
-        issues.append("Missing PORT read from env")
-    if "app.run(" not in s:
-        issues.append("Missing app.run call")
     if "dataset.csv" not in s:
-        issues.append("Dataset path usage not found")
-    if "pd.read_csv(" not in s:
+        issues.append("Dataset path 'dataset.csv' usage not found")
+    if "read_csv" not in s:
         issues.append("Missing pandas read_csv")
+    if "if __name__ == '__main__':" not in s and 'if __name__ == "__main__":' not in s:
+        issues.append("Missing __main__ guard")
+    if "PORT" not in s:
+        issues.append("Missing PORT read from environment")
+    if "app.run(" not in s and "app.run_server(" not in s:
+        issues.append("Missing app.run call")
+
     return (len(issues) == 0, issues)
 
 def gemini_optimize_code(code: str, analysis_result: Dict[str, Any], dataset_summary: Dict[str, Any]) -> str:
@@ -564,6 +695,14 @@ app = dash.Dash(
     routes_pathname_prefix=base_path,
     suppress_callback_exceptions=True,
 )
+
+@app.server.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = '*'
+    return response
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8050'))
     app.run(host='0.0.0.0', port=port, debug=False)
@@ -915,9 +1054,8 @@ def create_dashboard(
     print("🚀 Starting Dashboard Creation Pipeline")
     print("=" * 50)
     
-    # Verify API key
-    if not os.getenv("GROQ_API_KEY"):
-        raise ValueError("GROQ_API_KEY environment variable is not configured. Please set your GROQ_API_KEY in backend/.env.local or environment variables.")
+    # Verify the key and configured models before stages that otherwise fall back silently.
+    validate_groq_configuration()
 
     # Load data
     try:

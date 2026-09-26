@@ -9,14 +9,18 @@ from app.paths import CHROMA_DIR, DASHBOARD_DIR, ENV_FILE, TEMPLATES_FILE, load_
 # Load environment variables
 load_project_env()
 
-# API Configuration
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+# Model Configuration (configurable via environment variables with valid Groq models)
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
+GROQ_MODEL_ANALYSIS = os.getenv("GROQ_MODEL_ANALYSIS", DEFAULT_GROQ_MODEL)
+GROQ_MODEL_DESIGN = os.getenv("GROQ_MODEL_DESIGN", DEFAULT_GROQ_MODEL)
+GROQ_MODEL_CODE = os.getenv("GROQ_MODEL_CODE", DEFAULT_GROQ_MODEL)
+GROQ_MODEL_OPTIMIZE = os.getenv("GROQ_MODEL_OPTIMIZE", DEFAULT_GROQ_MODEL)
 
-# Model Configuration
 MODELS = {
-    "analyzer": "meta-llama/llama-4-scout-17b-16e-instruct",
-    "designer": "deepseek-r1-distill-llama-70b", 
-    "coder": "openai/gpt-oss-20b"
+    "analyzer": GROQ_MODEL_ANALYSIS,
+    "designer": GROQ_MODEL_DESIGN, 
+    "coder": GROQ_MODEL_CODE,
+    "optimizer": GROQ_MODEL_OPTIMIZE,
 }
 
 # Vector Database Configuration
@@ -54,8 +58,8 @@ DEFAULT_PROMPTS = {
 # Validation
 def validate_config():
     """Validate the configuration"""
-    if not GROQ_API_KEY:
-        raise ValueError("GROQ_API_KEY not found in environment variables")
+    if not os.getenv("GROQ_API_KEY"):
+        raise ValueError("GROQ_API_KEY not found. Set it in backend/.env.local or the environment.")
     
     if not os.path.exists(TEMPLATES_FILE):
         raise ValueError(f"Templates file not found: {TEMPLATES_FILE}")
@@ -66,7 +70,6 @@ def validate_config():
 def get_config():
     """Get the complete configuration"""
     return {
-        "groq_api_key": GROQ_API_KEY,
         "models": MODELS,
         "vector_db": VECTOR_DB_CONFIG,
         "pipeline": PIPELINE_CONFIG,

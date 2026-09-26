@@ -34,7 +34,7 @@ const VideoInspirationGallery: React.FC<Props> = ({ onExampleSelect, onUseTempla
       videoUrl: worldVideo,
       thumbnail: worldImg,
       dataset: "world_environment_synthetic.csv",
-      description: "VizAI intelligently selected choropleth maps, animated time series, scatter plots, and trend charts to reveal patterns in GDP, CO₂ emissions, and life expectancy across countries.",
+      description: "Veridia intelligently selected choropleth maps, animated time series, scatter plots, and trend charts to reveal patterns in GDP, CO₂ emissions, and life expectancy across countries.",
       features: ["Interactive World Map", "Animated Time Series", "Dynamic Filtering", "CO₂ Correlation Analysis"],
       color: "from-emerald-500/20 to-cyan-500/20",
       borderColor: "border-emerald-500/30",
@@ -48,7 +48,7 @@ const VideoInspirationGallery: React.FC<Props> = ({ onExampleSelect, onUseTempla
       videoUrl: medicalVideo,
       thumbnail: medicalImg,
       dataset: "synthetic_medical_data.csv",
-      description: "VizAI generated 3D scatter plots, Sankey diagrams, hierarchical charts, and bar plots to capture complex relationships in patient data.",
+      description: "Veridia generated 3D scatter plots, Sankey diagrams, hierarchical charts, and bar plots to capture complex relationships in patient data.",
       features: ["3D Health Correlations", "Patient Flow Diagrams", "Real-time Insights", "Medical Trend Analysis"],
       color: "from-rose-500/20 to-pink-500/20",
       borderColor: "border-rose-500/30",
@@ -62,7 +62,7 @@ const VideoInspirationGallery: React.FC<Props> = ({ onExampleSelect, onUseTempla
       videoUrl: fintechVideo,
       thumbnail: fintechImg,
       dataset: "fintech_behavioral.csv",
-      description: "VizAI automatically chose sunburst, scatter plots, 3D plots, and time series to visualize behavioral patterns in fintech users.",
+      description: "Veridia automatically chose sunburst, scatter plots, 3D plots, and time series to visualize behavioral patterns in fintech users.",
       features: ["Sunburst Visualization", "3D Scatter Plots", "Real-time Insights", "Fintech Trend Analysis"],
       color: "from-amber-500/20 to-yellow-500/20",
       borderColor: "border-amber-500/30",
@@ -76,7 +76,7 @@ const VideoInspirationGallery: React.FC<Props> = ({ onExampleSelect, onUseTempla
       videoUrl: transportVideo,
       thumbnail: transportImg,
       dataset: "synthetic_transportation_data.csv",
-      description: "VizAI crafted choropleths, time series, 3D scatter plots, and Sankey flow diagrams to reveal revenue trends and efficiency metrics.",
+      description: "Veridia crafted choropleths, time series, 3D scatter plots, and Sankey flow diagrams to reveal revenue trends and efficiency metrics.",
       features: ["Route Optimization", "Real-time Delay Tracking", "Revenue Analytics", "Passenger Flow Analysis"],
       color: "from-blue-500/20 to-indigo-500/20",
       borderColor: "border-blue-500/30",
@@ -90,7 +90,7 @@ const VideoInspirationGallery: React.FC<Props> = ({ onExampleSelect, onUseTempla
       videoUrl: marketingVideo,
       thumbnail: marketingImg,
       dataset: "marketing_data_countries.csv",
-      description: "VizAI created Sankey diagrams, 3D scatter plots, choropleth maps, and time series for marketing campaign analysis.",
+      description: "Veridia created Sankey diagrams, 3D scatter plots, choropleth maps, and time series for marketing campaign analysis.",
       features: ["Campaign ROI Analysis", "Customer Journey Mapping", "Channel Performance", "Geographic Targeting"],
       color: "from-purple-500/20 to-violet-500/20",
       borderColor: "border-purple-500/30",
@@ -155,7 +155,7 @@ const VideoInspirationGallery: React.FC<Props> = ({ onExampleSelect, onUseTempla
         </h2>
         <p className="text-slate-400 max-w-3xl mx-auto text-lg leading-relaxed">
           Watch real dashboards in action. Each video showcases fully interactive, production-ready visualizations 
-          with dynamic filtering, animations, and professional insights panels - all generated automatically by VizAI.
+          with dynamic filtering, animations, and professional insights panels - all generated automatically by Veridia.
         </p>
       </div>
 

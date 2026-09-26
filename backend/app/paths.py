@@ -13,13 +13,6 @@ REPO_ROOT = BACKEND_ROOT.parent
 DATA_DIR = BACKEND_ROOT / "data"
 ENV_FILE = BACKEND_ROOT / ".env.local"
 
-UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", BACKEND_ROOT / "uploads"))
-DASHBOARD_DIR = Path(os.environ.get("DASHBOARD_DIR", BACKEND_ROOT / "generated_dashboards"))
-CHROMA_DIR = Path(os.environ.get("CHROMA_DIR", BACKEND_ROOT / "chroma_db"))
-R_OUTPUT_DIR = Path(os.environ.get("R_OUTPUT_DIR", BACKEND_ROOT / "generated_visualization"))
-
-TEMPLATES_FILE = SERVICES_DIR / "rag1_example_viz.json"
-
 
 def load_project_env() -> None:
     """Load environment variables from .env.local and .env files."""
@@ -33,6 +26,17 @@ def load_project_env() -> None:
     ):
         if env_path.exists():
             load_dotenv(dotenv_path=env_path, override=False)
+
+
+# Load env immediately so path overrides in .env are respected
+load_project_env()
+
+UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", BACKEND_ROOT / "uploads"))
+DASHBOARD_DIR = Path(os.environ.get("DASHBOARD_DIR", BACKEND_ROOT / "generated_dashboards"))
+CHROMA_DIR = Path(os.environ.get("CHROMA_DIR", BACKEND_ROOT / "chroma_db"))
+R_OUTPUT_DIR = Path(os.environ.get("R_OUTPUT_DIR", BACKEND_ROOT / "generated_visualization"))
+
+TEMPLATES_FILE = SERVICES_DIR / "rag1_example_viz.json"
 
 
 

@@ -30,8 +30,9 @@ MIN_CHAIN_EXAMPLES = 3  # Ensure at least 3 examples flow to next stages
 RETRIEVAL_TOP_K = 5  # Retrieval size for example dashboards
 
 # Models
-MODEL_SELECTION = "meta-llama/llama-4-scout-17b-16e-instruct"
-MODEL_LARGE_JSON = "openai/gpt-oss-120b"
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
+MODEL_SELECTION = os.getenv("GROQ_MODEL_ANALYSIS", os.getenv("GROQ_MODEL_SELECTION", DEFAULT_GROQ_MODEL))
+MODEL_LARGE_JSON = os.getenv("GROQ_MODEL_CODE", DEFAULT_GROQ_MODEL)
 
 def load_data_resources():
     """Load both example metadata and code libraries"""

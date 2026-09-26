@@ -64,7 +64,12 @@ def main():
     # Create directories
     create_directories()
 
-    port = int(os.environ.get("BACKEND_PORT", "8000"))
+    port = int(
+        os.environ.get(
+            "PORT",
+            os.environ.get("BACKEND_PORT", "8000")
+        )
+    )
     print(f"\n[INFO] Backend ready to start!")
     print(f"[INFO] API will be available at: http://localhost:{port}")
     print(f"[INFO] API documentation at:     http://localhost:{port}/docs")
@@ -76,7 +81,7 @@ def main():
             "app.main:app",
             host="0.0.0.0",
             port=port,
-            reload=True,
+            reload=False,
             log_level="info",
         )
     except KeyboardInterrupt:

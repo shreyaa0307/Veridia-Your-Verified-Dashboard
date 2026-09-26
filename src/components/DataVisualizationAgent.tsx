@@ -47,6 +47,21 @@ const DataVisualizationAgent = () => {
   // Short-term error polling timer
   const errorPollRef = useRef<number | null>(null);
 
+  const getEffectiveDashboardUrl = (url: string): string => {
+    if (!url) return '';
+    try {
+      const parsed = new URL(url);
+      if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+        if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '0.0.0.0') {
+          parsed.hostname = window.location.hostname;
+        }
+      }
+      return parsed.toString();
+    } catch {
+      return url;
+    }
+  };
+
   const fetchLatestError = useCallback(async (did: string) => {
     try {
       const er = await apiService.getDashboardError(did);
@@ -1333,7 +1348,7 @@ const DataVisualizationAgent = () => {
                           <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
                           <span className="ml-3 text-xs text-slate-400 font-mono">Dashboard Preview</span>
                         </div>
-                        <iframe title="Dashboard Preview" src={dashboardUrl} className="w-full h-[calc(100%-36px)]" />
+                        <iframe title="Dashboard Preview" src={getEffectiveDashboardUrl(dashboardUrl)} className="w-full h-[calc(100%-36px)]" />
                       </div>
                     ) : (
                       <div className="h-full flex items-center justify-center text-slate-400">No preview available</div>
