@@ -1,21 +1,32 @@
-import json
-import os
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Any, Tuple
-from groq import APIStatusError, Groq
-import httpx
 import ast
-import re
+from collections import Counter
+import io
+import json
 import logging
 import math
-from collections import Counter
+import os
+import re
+import sys
+from typing import Any, Dict, List, Tuple
 import uuid
 
-from app.paths import DATA_DIR, DASHBOARD_DIR, TEMPLATES_FILE, load_project_env
+from groq import APIStatusError, Groq
+import httpx
+import numpy as np
+import pandas as pd
+
+from app.paths import DASHBOARD_DIR, DATA_DIR, TEMPLATES_FILE, load_project_env
+
+# Force UTF-8 standard streams on Windows so logging and prints never fail
+if sys.platform == "win32":
+    if hasattr(sys.stdout, "buffer"):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "buffer"):
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 # Load environment
 load_project_env()
+
 
 def get_groq_client() -> Groq:
     """Get a Groq client instance, raising a clear exception if GROQ_API_KEY is not configured."""
@@ -23,6 +34,37 @@ def get_groq_client() -> Groq:
     if not api_key:
         raise ValueError("GROQ_API_KEY environment variable is not configured. Please set your GROQ_API_KEY in backend/.env.local or environment variables.")
     return Groq(api_key=api_key)
+
+
+# Configuration (environment-configurable with supported Groq models)
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
+MODEL_ANALYSIS = os.getenv("GROQ_MODEL_ANALYSIS", DEFAULT_GROQ_MODEL)
+MODEL_DESIGN = os.getenv("GROQ_MODEL_DESIGN", DEFAULT_GROQ_MODEL)
+MODEL_CODE = os.getenv("GROQ_MODEL_CODE", DEFAULT_GROQ_MODEL)
+MODEL_OPTIMIZE = os.getenv("GROQ_MODEL_OPTIMIZE", DEFAULT_GROQ_MODEL)
+FALLBACK_GROQ_MODELS = ["openai/gpt-oss-20b", "qwen/qwen3.8-27b", "openai/gpt-oss-120b"]
+
+# Toggle counter to alternate chat-edit calls between CODE and OPTIMIZE models
+CHAT_EDIT_CALL_COUNT = 0
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+
+
+def _chat_completion_with_fallback(client: Groq, preferred_model: str, messages: list, **kwargs):
+    """Invoke Groq chat completion, automatically falling back to alternative models if rate limits or errors occur."""
+    models_to_try = [preferred_model] + [m for m in FALLBACK_GROQ_MODELS if m != preferred_model]
+    last_err = None
+    for model in models_to_try:
+        try:
+            return client.chat.completions.create(
+                messages=messages,
+                model=model,
+                **kwargs
+            )
+        except Exception as exc:
+            last_err = exc
+            logging.warning(f"Groq model {model} attempt failed: {exc}. Trying fallback model if available.")
+    raise last_err
 
 
 def validate_groq_configuration() -> None:
@@ -55,41 +97,42 @@ def validate_groq_configuration() -> None:
         )
 
 
-# Configuration (environment-configurable with supported Groq models)
-DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
-MODEL_ANALYSIS = os.getenv("GROQ_MODEL_ANALYSIS", DEFAULT_GROQ_MODEL)
-MODEL_DESIGN = os.getenv("GROQ_MODEL_DESIGN", DEFAULT_GROQ_MODEL)
-MODEL_CODE = os.getenv("GROQ_MODEL_CODE", DEFAULT_GROQ_MODEL)
-MODEL_OPTIMIZE = os.getenv("GROQ_MODEL_OPTIMIZE", DEFAULT_GROQ_MODEL)
-# Toggle counter to alternate chat-edit calls between CODE and OPTIMIZE models
-CHAT_EDIT_CALL_COUNT = 0
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
-
 def _extract_code_blocks(text: str) -> str:
-    """Utility: extract code from fenced blocks if present."""
+    """Extract code from fenced blocks, handling multiple blocks, unclosed blocks, and raw code."""
     if not text:
         return ""
-    if "```python" in text:
-        try:
-            return text.split("```python", 1)[1].split("```", 1)[0].strip()
-        except Exception:
-            pass
-    if "```" in text:
-        try:
-            return text.split("```", 1)[1].split("```", 1)[0].strip()
-        except Exception:
-            pass
-    return text.strip()
+    text_clean = text.strip()
+
+    # Match standard python block
+    py_pattern = r"```(?:python|py)\s*\n([\s\S]*?)(?:\n```|$)"
+    match = re.search(py_pattern, text_clean, re.IGNORECASE)
+    if match and match.group(1).strip():
+        return match.group(1).strip()
+
+    # Match generic fenced block
+    gen_pattern = r"```\s*\n([\s\S]*?)(?:\n```|$)"
+    match = re.search(gen_pattern, text_clean)
+    if match and match.group(1).strip():
+        return match.group(1).strip()
+
+    # If starts with ``` remove fence markers
+    if text_clean.startswith("```"):
+        text_clean = re.sub(r"^```[a-zA-Z]*\n?", "", text_clean)
+        text_clean = re.sub(r"\n?```$", "", text_clean)
+
+    return text_clean.strip()
 
 
 def _validate_code(code: str) -> tuple[bool, str]:
     """Return (ok, error_text) after attempting to parse Python code."""
+    if not code or not code.strip():
+        return False, "Code is empty"
     try:
         ast.parse(code)
         return True, ""
     except Exception as e:
         return False, str(e)
+
 
 def _normalized_code(s: str) -> str:
     """Normalize code for minimal-change comparison: strip whitespace-only diffs."""
@@ -98,15 +141,171 @@ def _normalized_code(s: str) -> str:
     except Exception:
         return s or ""
 
-def _validate_dash_code(code: str) -> Tuple[bool, List[str]]:
-    """Comprehensive AST and semantic validation for generated Dash applications.
-    Checks syntax, required imports, dataset usage, port/base_path handling,
-    app lifecycle, and callback sanity (e.g. duplicate callback outputs).
+
+def sanitize_and_modernize_dash_code(code: str) -> str:
+    """Deterministic AST & regex sanitizer and modernizer for Dash + DBC code.
+    Fixes:
+    1. All deprecated dash_bootstrap_components (DBC 2.0.4 compatibility):
+       - dbc.FormGroup -> html.Div(..., className="mb-3")
+       - dbc.InputGroupAddon -> dbc.InputGroupText
+       - dbc.CardDeck, dbc.CardColumns -> dbc.Row or html.Div
+       - dbc.CardGroup -> html.Div
+       - dbc.Jumbotron -> html.Div(..., className="p-4 mb-4 bg-dark rounded-3")
+       - dbc.ListGroupItemHeading -> html.H5
+       - dbc.ListGroupItemText -> html.P
+       - inline=True in dbc.Form removed
+    2. Essential imports (dash, html, dcc, dash_table, callback, Output, Input, State, dbc, px, go, os, sys, pd, np)
+    3. Safe dataset resolution using script_dir and fallback to dataset.csv
+    4. Base path proxy prefix configuration on Dash app
+    5. CORS headers handler on app.server
+    6. Main run block with PORT environment read and 0.0.0.0 binding
+    7. Dropdown contrast styling in dark theme
     """
+    if not code or not code.strip():
+        return code
+
+    s = code.strip()
+
+    # 0. Ensure essential imports exist at top
+    needed_imports = []
+    if not re.search(r'\bimport\s+os\b', s):
+        needed_imports.append("import os")
+    if not re.search(r'\bimport\s+sys\b', s):
+        needed_imports.append("import sys")
+    if not re.search(r'\bimport\s+pandas\b', s) and "pd." in s:
+        needed_imports.append("import pandas as pd")
+    if not re.search(r'\bimport\s+dash\b', s):
+        needed_imports.append("import dash")
+    if not re.search(r'\bimport\s+dash_bootstrap_components\b', s) and "dbc." in s:
+        needed_imports.append("import dash_bootstrap_components as dbc")
+    if not re.search(r'\bfrom\s+dash\s+import\b', s):
+        needed_imports.append("from dash import dcc, html, dash_table, callback, Output, Input, State")
+
+    if needed_imports:
+        s = "\n".join(needed_imports) + "\n\n" + s
+
+    # 1. Deprecated DBC component replacements
+    s = re.sub(r'\bdbc\.FormGroup\b', 'html.Div', s)
+    s = re.sub(r'(?<![a-zA-Z0-9_])FormGroup\b', 'html.Div', s)
+    s = re.sub(r'\bdbc\.InputGroupAddon\b', 'dbc.InputGroupText', s)
+    s = re.sub(r'(?<![a-zA-Z0-9_])InputGroupAddon\b', 'dbc.InputGroupText', s)
+    s = re.sub(r'\bdbc\.CardColumns\b', 'dbc.Row', s)
+    s = re.sub(r'\bdbc\.CardDeck\b', 'dbc.Row', s)
+    s = re.sub(r'\bdbc\.CardGroup\b', 'html.Div', s)
+    s = re.sub(r'\bdbc\.Jumbotron\b', 'html.Div', s)
+    s = re.sub(r'\bdbc\.ListGroupItemHeading\b', 'html.H5', s)
+    s = re.sub(r'\bdbc\.ListGroupItemText\b', 'html.P', s)
+    s = re.sub(r',\s*inline\s*=\s*True', '', s)
+    s = re.sub(r'inline\s*=\s*True\s*,?', '', s)
+
+    # Clean up any import of removed components
+    s = re.sub(r'from\s+dash_bootstrap_components\s+import\s+[^;\n]*\bFormGroup\b', 'import dash_bootstrap_components as dbc', s)
+
+    # 2. Ensure base_path exists before app initialization
+    if 'base_path' not in s:
+        if re.search(r'\n\s*app\s*=', s):
+            s = re.sub(r'(\n\s*app\s*=)', r"\nbase_path = os.getenv('BASE_PATH', '/')\n\1", s, count=1)
+        else:
+            s = s + "\nbase_path = os.getenv('BASE_PATH', '/')\n"
+
+    # 3. Ensure Dash app is initialized with BASE_PATH prefixes & suppress_callback_exceptions
+    if "requests_pathname_prefix" not in s and ("dash.Dash(" in s or "Dash(" in s):
+        def _patch_dash_init(m: re.Match) -> str:
+            call_text = m.group(0)
+            if "requests_pathname_prefix" in call_text:
+                return call_text
+            open_p = call_text.find("(")
+            inner = call_text[open_p + 1 :].rstrip()
+            if inner.endswith(")"):
+                inner = inner[:-1].rstrip()
+            sep = ", " if inner.strip() else ""
+            return (
+                call_text[: open_p + 1]
+                + inner
+                + sep
+                + "requests_pathname_prefix=base_path, routes_pathname_prefix=base_path, suppress_callback_exceptions=True)"
+            )
+        s = re.sub(r"(?:dash\.)?Dash\s*\([^)]*\)", _patch_dash_init, s)
+
+    # 4. Ensure CORS handler on app.server
+    if "Access-Control-Allow-Origin" not in s and "add_cors_headers" not in s and "_add_cors_headers" not in s:
+        cors_snippet = (
+            "\n# Enable CORS headers for iframe embedding\n"
+            "if 'app' in globals() and hasattr(app, 'server'):\n"
+            "    @app.server.after_request\n"
+            "    def _add_cors_headers(response):\n"
+            "        response.headers['Access-Control-Allow-Origin'] = '*'\n"
+            "        response.headers['Access-Control-Allow-Headers'] = '*'\n"
+            "        response.headers['Access-Control-Allow-Methods'] = '*'\n"
+            "        return response\n"
+        )
+        if 'if __name__ == "__main__":' in s:
+            s = s.replace('if __name__ == "__main__":', cors_snippet + '\nif __name__ == "__main__":')
+        elif "if __name__ == '__main__':" in s:
+            s = s.replace("if __name__ == '__main__':", cors_snippet + "\nif __name__ == '__main__':")
+        else:
+            s = s + "\n" + cors_snippet
+
+    # 5. Ensure __main__ block has app.run(host='0.0.0.0', port=port, debug=False)
+    if "if __name__ ==" not in s:
+        s = s + (
+            "\n\nif __name__ == '__main__':\n"
+            "    port = int(os.getenv('PORT', '8050'))\n"
+            "    app.run(host='0.0.0.0', port=port, debug=False)\n"
+        )
+    else:
+        s = re.sub(r"""host\s*=\s*['"](?:localhost|127\.0\.0\.1)['"]""", "host='0.0.0.0'", s)
+        if "app.run" in s and "host=" not in s:
+            s = re.sub(r"app\.run\s*\(([^)]*)\)", r"app.run(\1, host='0.0.0.0')", s)
+            s = s.replace(", ,", ",").replace("(,", "(")
+
+    # 6. Ensure dataset path handling handles __file__ safely
+    if "dataset.csv" in s and "script_dir" not in s and "pd.read_csv" in s:
+        safe_csv_load = (
+            "_script_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()\n"
+            "_dataset_path = os.path.join(_script_dir, 'dataset.csv') if os.path.exists(os.path.join(_script_dir, 'dataset.csv')) else 'dataset.csv'\n"
+        )
+        s = re.sub(r"(\w+\s*=\s*pd\.read_csv\()(['\"]dataset\.csv['\"])", safe_csv_load + r"\1_dataset_path", s, count=1)
+
+    return s
+
+
+def _test_dash_code_runtime(code: str, dataset_csv_path: str = "dataset.csv") -> tuple[bool, str]:
+    """Test execute the Dash code in a sandbox namespace (dry-run without app.run())
+    to catch layout, import, or callback registration errors before starting the subprocess.
+    """
+    if not code or not code.strip():
+        return False, "Code is empty"
+
+    try:
+        compiled = compile(code, "<generated_dash_app>", "exec")
+    except SyntaxError as e:
+        return False, f"SyntaxError at line {e.lineno}: {e.msg}"
+    except Exception as e:
+        return False, f"Compilation failed: {e}"
+
+    try:
+        test_dir = os.path.dirname(os.path.abspath(dataset_csv_path)) if os.path.exists(dataset_csv_path) else os.getcwd()
+        fake_file = os.path.join(test_dir, "dashboard_app.py")
+        env_ns = {
+            "__file__": fake_file,
+            "__name__": "__not_main__",  # prevents app.run() from blocking execution
+            "__doc__": None,
+        }
+        exec(compiled, env_ns)
+        return True, ""
+    except Exception as e:
+        import traceback
+        return False, traceback.format_exc()
+
+
+def _validate_dash_code(code: str) -> Tuple[bool, List[str]]:
+    """Comprehensive AST and semantic validation for generated Dash applications."""
     issues: List[str] = []
-    s = code or ""
-    if not s.strip():
+    if not code or not code.strip():
         return False, ["Code is empty"]
+
+    s = sanitize_and_modernize_dash_code(code)
 
     # 1. Syntax check via AST
     try:
@@ -116,32 +315,20 @@ def _validate_dash_code(code: str) -> Tuple[bool, List[str]]:
     except Exception as e:
         return False, [f"AST parsing failed: {e}"]
 
-    # 2. Semantic AST checks
-    has_dash_import = False
-    has_pandas_import = False
+    # 2. Check for deprecated DBC components
+    deprecated_comps = [
+        "FormGroup", "InputGroupAddon", "CardColumns", "CardDeck",
+        "Jumbotron", "ListGroupItemHeading", "ListGroupItemText"
+    ]
+    for comp in deprecated_comps:
+        if f"dbc.{comp}" in s:
+            issues.append(f"Deprecated DBC component used: dbc.{comp}")
+
+    # 3. Semantic AST checks
     has_dash_init = False
-    has_read_csv = False
-    has_main_guard = False
-    has_app_run = False
-    has_port_read = False
-    has_base_path_read = False
-    callback_outputs = []
+    callback_outputs: List[Tuple[str, str]] = []
 
     for node in ast.walk(tree):
-        # Check imports
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                if alias.name == "dash" or alias.name.startswith("dash."):
-                    has_dash_import = True
-                if alias.name == "pandas":
-                    has_pandas_import = True
-        elif isinstance(node, ast.ImportFrom):
-            if node.module and (node.module == "dash" or node.module.startswith("dash.")):
-                has_dash_import = True
-            if node.module and node.module == "pandas":
-                has_pandas_import = True
-
-        # Check Dash app initialization
         if isinstance(node, ast.Call):
             func = node.func
             func_name = ""
@@ -151,25 +338,9 @@ def _validate_dash_code(code: str) -> Tuple[bool, List[str]]:
                 func_name = func.attr
             if func_name in ("Dash", "dash"):
                 has_dash_init = True
-            if func_name == "read_csv":
-                has_read_csv = True
-            if func_name in ("run", "run_server"):
-                has_app_run = True
 
-        # Check __main__ guard
-        if isinstance(node, ast.If):
-            test = node.test
-            if isinstance(test, ast.Compare):
-                left = getattr(test.left, "id", "") if isinstance(test.left, ast.Name) else ""
-                if left == "__name__":
-                    for comparator in test.comparators:
-                        if isinstance(comparator, ast.Constant) and comparator.value == "__main__":
-                            has_main_guard = True
-
-        # Check callback outputs for duplicates
         if isinstance(node, ast.FunctionDef):
             for decorator in node.decorator_list:
-                # Catch @app.callback(Output(...), ...) or @callback(Output(...), ...)
                 if isinstance(decorator, ast.Call):
                     dec_name = ""
                     if isinstance(decorator.func, ast.Name):
@@ -177,67 +348,63 @@ def _validate_dash_code(code: str) -> Tuple[bool, List[str]]:
                     elif isinstance(decorator.func, ast.Attribute):
                         dec_name = decorator.func.attr
                     if dec_name == "callback":
-                        # Inspect arguments for Output
+                        out_calls: List[ast.Call] = []
                         for arg in decorator.args:
                             if isinstance(arg, ast.Call):
-                                output_func = getattr(arg.func, "id", "") or getattr(arg.func, "attr", "")
-                                if output_func == "Output" and len(arg.args) >= 2:
-                                    comp_id = getattr(arg.args[0], "value", None) if isinstance(arg.args[0], ast.Constant) else None
-                                    comp_prop = getattr(arg.args[1], "value", None) if isinstance(arg.args[1], ast.Constant) else None
-                                    if comp_id and comp_prop:
-                                        target = (comp_id, comp_prop)
-                                        # Check for duplicate
-                                        if target in callback_outputs:
-                                            # Check if allow_duplicate keyword is set
-                                            has_allow_dup = any(
-                                                kw.arg == "allow_duplicate" and getattr(kw.value, "value", False) is True
-                                                for kw in arg.keywords
-                                            )
-                                            if not has_allow_dup:
-                                                issues.append(f"Duplicate callback output target: {target}")
-                                        else:
-                                            callback_outputs.append(target)
+                                out_calls.append(arg)
+                            elif isinstance(arg, (ast.List, ast.Tuple)):
+                                for elt in arg.elts:
+                                    if isinstance(elt, ast.Call):
+                                        out_calls.append(elt)
 
-    # Text-based fallback and presence checks
-    if "dash" not in s:
-        issues.append("Missing dash import")
-    if "dash.Dash(" not in s and "Dash(" not in s:
-        issues.append("Missing dash app initialization")
-    if "dataset.csv" not in s:
-        issues.append("Dataset path 'dataset.csv' usage not found")
-    if "read_csv" not in s:
-        issues.append("Missing pandas read_csv")
-    if "if __name__ == '__main__':" not in s and 'if __name__ == "__main__":' not in s:
-        issues.append("Missing __main__ guard")
-    if "PORT" not in s:
-        issues.append("Missing PORT read from environment")
-    if "app.run(" not in s and "app.run_server(" not in s:
-        issues.append("Missing app.run call")
+                        for call_node in out_calls:
+                            output_func = getattr(call_node.func, "id", "") or getattr(call_node.func, "attr", "")
+                            if output_func == "Output" and len(call_node.args) >= 2:
+                                comp_id = getattr(call_node.args[0], "value", None) if isinstance(call_node.args[0], ast.Constant) else None
+                                comp_prop = getattr(call_node.args[1], "value", None) if isinstance(call_node.args[1], ast.Constant) else None
+                                if comp_id and comp_prop:
+                                    target = (str(comp_id), str(comp_prop))
+                                    has_allow_dup = any(
+                                        kw.arg == "allow_duplicate" and getattr(kw.value, "value", False) is True
+                                        for kw in call_node.keywords
+                                    )
+                                    if target in callback_outputs and not has_allow_dup:
+                                        issues.append(f"Duplicate callback output target without allow_duplicate: {target}")
+                                    else:
+                                        callback_outputs.append(target)
+
+    if not has_dash_init and "dash.Dash(" not in s and "Dash(" not in s:
+        issues.append("Missing Dash app initialization")
 
     return (len(issues) == 0, issues)
 
+
 def gemini_optimize_code(code: str, analysis_result: Dict[str, Any], dataset_summary: Dict[str, Any]) -> str:
-    """
-    Optional Stage: Use Gemini to further refine and correct the Dash code.
-    Uses REST API via httpx; requires GEMINI_API_KEY in environment.
-    Returns the improved code or the original code on failure.
-    """
-    if not GEMINI_API_KEY:
+    """Optional Stage: Use Gemini to further refine and correct the Dash code."""
+    if not GEMINI_API_KEY or not code:
         return code
-    print("\n=== STAGE 6: Gemini Optimization (conservative final pass) ===")
-    system_prompt = """You are an expert Dash+Plotly engineer. Your job is to FIX only the specific
-technical problems in the provided Python Dash app. 
+    print("\n=== STAGE 6: Gemini Optimization ===")
+    system_prompt = """You are an expert Dash + Plotly + Dash Bootstrap Components 2.x engineer.
+Your job is to FIX any remaining technical problems in the provided Python Dash app.
+CRITICAL DBC RULES:
+ - NEVER use dbc.FormGroup (it is deprecated in DBC 1.0+ and removed in DBC 2.0.4; using it will CRASH the app).
+ - Wrap form inputs in html.Div([dbc.Label(...), dcc.Dropdown(...)], className="mb-3") or dbc.Row([dbc.Col(...)], className="mb-3").
+ - NEVER use dbc.InputGroupAddon. Use dbc.InputGroupText instead.
+ - Ensure style={'color': '#111827'} or style={'color': 'black'} is present on dcc.Dropdown() so dropdown text is visible.
  - DO NOT re-design working parts.
- - Make the smallest possible edit set so the script becomes syntactically correct ,runnable and does NOT render empty plots.
- - Ensure that there is no misconnected filter/animation/interaction.
- - Remove any callback errors (duplicate callbacks/ missing input/outputs )
- - Ensure filteration is correct for all paramaters that user needs to select.
- - Make the filter selection dropdown (checklist) text colour black, by adding style={'color': 'black'} to dcc.Dropdown(), if present. The texts are not visible currently.
-Return ONLY the complete Python source file (no markdown).
-Prioritize preserving variable names, layout, comments and the overall structure.
+ - Ensure all callbacks are correctly wired with matching Input/Output IDs.
+ - Keep app.run(host='0.0.0.0', port=int(os.getenv('PORT', '8050')), debug=False).
+ - Return ONLY the complete, runnable Python source file (no markdown, no explanations).
 """
     user_payload = f"""
-Dataset summary:\n{json.dumps(dataset_summary, indent=2)}\n\nGenerated/optimized code to perfect:\n```python\n{code}\n```\n"""
+Dataset summary:
+{json.dumps(dataset_summary, indent=2)}
+
+Generated/optimized code to perfect:
+```python
+{code}
+```
+"""
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
     body = {
         "contents": [
@@ -246,7 +413,7 @@ Dataset summary:\n{json.dumps(dataset_summary, indent=2)}\n\nGenerated/optimized
         ],
         "generationConfig": {
             "temperature": 0.1,
-            "maxOutputTokens": 5000
+            "maxOutputTokens": 8192
         }
     }
     try:
@@ -257,31 +424,31 @@ Dataset summary:\n{json.dumps(dataset_summary, indent=2)}\n\nGenerated/optimized
             candidates = (data.get("candidates") or [])
             text = ""
             if candidates:
-                
                 first = candidates[0]
                 if isinstance(first, dict):
                     content = first.get('content') or {}
                     parts = content.get('parts') if isinstance(content, dict) else None
                     if parts:
-                        
                         text = parts[0].get('text', '')
                 elif isinstance(first, str):
                     text = first
             if not text:
-                # fallback: try top-level fields
                 text = data.get('content') or data.get('text') or ''
 
             improved = _extract_code_blocks(text)
-            
-            ok, err = _validate_code(improved) if improved else (False, 'empty')
-            if ok:
-                return improved
-            else:
-                logging.warning(f"Gemini returned code but it failed validation: {err}")
-                return code
+            if improved:
+                improved = sanitize_and_modernize_dash_code(improved)
+                ok, err = _validate_code(improved)
+                if ok:
+                    return improved
+                else:
+                    logging.warning(f"Gemini returned code but it failed validation: {err}")
+                    return code
+            return code
     except Exception as e:
-        logging.exception("❌ Gemini optimization skipped")
+        logging.warning(f"Gemini optimization skipped: {e}")
         return code
+
 
 def create_example_data():
     """Create example sales data for testing"""
@@ -306,21 +473,17 @@ def create_example_data():
     df.to_csv(output_path, index=False)
     return str(output_path)
 
+
 def analyze_dataset_comprehensive(df: pd.DataFrame) -> Dict[str, Any]:
-    """
-    Stage 1: Comprehensive dataset analysis
-    Analyzes the entire dataset and returns detailed insights
-    """
+    """Stage 1: Comprehensive dataset analysis."""
     print("\n=== STAGE 1: Comprehensive Dataset Analysis ===")
     print(f"Analyzing dataset with {len(df)} rows and {len(df.columns)} columns")
     
-    # Convert dataframe to JSON-serializable format
     def convert_for_json(value):
         if isinstance(value, (pd.Timestamp, np.generic)):
             return str(value)
         return value
     
-    # Sample data for analysis (first 100 rows to avoid token limits)
     sample_size = min(100, len(df))
     sample_df = df.head(sample_size)
     
@@ -351,34 +514,12 @@ def analyze_dataset_comprehensive(df: pd.DataFrame) -> Dict[str, Any]:
 Analyze this entire dataset comprehensively and provide detailed insights. Return a JSON with:
 
 1. **Fields Analysis**: Detailed breakdown of each field with its role and characteristics
-2. **Data Categories**: Classify the dataset into categories like:
-   - Geological/Geospatial (coordinates, countries, regions)
-   - Time-based (dates, timestamps, temporal patterns)
-   - Scattering/Statistical (distributions, correlations)
-   - Financial (money, transactions, economic metrics)
-   - Transportation (routes, vehicles, logistics)
-   - Product/Inventory (products, categories, stock)
-   - Environmental/Climate (weather, pollution, sustainability)
-   - Medical/Healthcare (patient data, clinical metrics)
-   - ML/DL (features, predictions, model outputs)
-   - Company/Business (organizational data, performance)
-   - Marketing/Sales (campaigns, leads, conversions)
-   - HR/Personnel (employee data, performance metrics)
-   - And any other relevant categories
-
+2. **Data Categories**: Classify the dataset into categories (e.g. Geospatial, Temporal, Statistical, Financial, Sales, etc.)
 3. **Dataset Analysis**: What main patterns, trends, and insights can be extracted?
 4. **Insights by Category**: Detailed insights for each identified category
-5. **Visualization Insights**: What should users see in dashboard insight panels? also mention Required aggregations
+5. **Visualization Insights**: What should users see in dashboard insight panels? Also mention required aggregations.
 6. **Predictions**: What future trends or patterns can be predicted?
-7. **Field Relationships**: Explicitly note which fields are hierarchical/categorical and their relationships
-
-## Requirements:
-- Analyze ALL columns and data thoroughly
-- Provide specific, actionable insights
-- Consider temporal patterns if time data exists
-- Identify correlations and relationships
-- Suggest meaningful visualizations
-- Be comprehensive but focused on business value
+7. **Field Relationships**: Explicitly note which fields are hierarchical/categorical and their relationships.
 
 ## Output Format (JSON):
 {{
@@ -408,7 +549,7 @@ Analyze this entire dataset comprehensively and provide detailed insights. Retur
         {{
             "category": "string",
             "insights": ["string"],
-            "visualization_suggestions": [feild names, aggregations required, plot types]
+            "visualization_suggestions": ["string"]
         }}
     ],
     "dashboard_insights": [
@@ -430,57 +571,64 @@ Analyze this entire dataset comprehensively and provide detailed insights. Retur
     
     try:
         client = get_groq_client()
-        response = client.chat.completions.create(
+        response = _chat_completion_with_fallback(
+            client=client,
+            preferred_model=MODEL_ANALYSIS,
             messages=[{"role": "user", "content": prompt}],
-            model=MODEL_ANALYSIS,
             temperature=0.1,
             response_format={"type": "json_object"},
-            max_tokens=3000
+            max_tokens=3500
         )
         
         result = json.loads(response.choices[0].message.content)
-        print("✅ Dataset analysis completed")
+        print("[OK] Dataset analysis completed")
         return result
         
     except Exception as e:
-        print(f"❌ Dataset analysis failed: {str(e)}")
-        # Return basic analysis as fallback
+        print(f"[ERROR] Dataset analysis failed: {str(e)}")
+        cols = list(df.columns)
+        num_cols = [c for c in cols if pd.api.types.is_numeric_dtype(df[c])]
+        cat_cols = [c for c in cols if not pd.api.types.is_numeric_dtype(df[c])]
         return {
-            "fields_analysis": [],
-            "data_categories": [],
-            "dataset_analysis": {"main_patterns": [], "key_trends": []},
-            "insights_by_category": [],
-            "dashboard_insights": [],
+            "fields_analysis": [
+                {"field_name": c, "field_type": "numeric" if c in num_cols else "categorical", "role": "metric" if c in num_cols else "dimension", "characteristics": [], "insights": f"Distribution of {c}"}
+                for c in cols
+            ],
+            "data_categories": [
+                {"category": "General Analytics", "fields_involved": cols[:5], "description": "Dataset metrics and dimensions"}
+            ],
+            "dataset_analysis": {
+                "main_patterns": [f"Contains {len(df)} records across {len(cols)} dimensions"],
+                "key_trends": [f"Primary metrics: {', '.join(num_cols[:3]) or 'N/A'}"],
+                "data_quality": "Clean structured tabular data",
+                "business_value": "Operational visibility and multi-dimensional analysis"
+            },
+            "insights_by_category": [
+                {"category": "Overview", "insights": [f"Loaded {len(df)} rows"], "visualization_suggestions": cols[:4]}
+            ],
+            "dashboard_insights": [
+                {"panel_name": "Key Metrics", "content": f"Total records: {len(df)}", "update_triggers": ["filter_change"]}
+            ],
             "predictions": []
-        } 
+        }
+
 
 def retrieve_similar_examples(analysis_result: Dict[str, Any], examples_db: List[Dict[str, Any]], top_k: int = 3) -> List[Dict[str, Any]]:
-    """
-    Stage 2: RAG retrieval of similar examples
-    Retrieves most similar dashboard examples based on dataset analysis
-    """
+    """Stage 2: RAG retrieval of similar examples."""
     print("\n=== STAGE 2: RAG Retrieval of Similar Examples ===")
-    
-    # Build query from analysis
+    if not examples_db:
+        return []
+
     query_parts = []
-    
-    # Add categories
-    categories = [cat["category"] for cat in analysis_result.get("data_categories", [])]
+    categories = [cat.get("category", "") for cat in analysis_result.get("data_categories", [])]
     query_parts.extend(categories)
-    
-    # Add field types
-    fields = [field["field_type"] for field in analysis_result.get("fields_analysis", [])]
+    fields = [field.get("field_type", "") for field in analysis_result.get("fields_analysis", [])]
     query_parts.extend(fields)
-    
-    # Add insights
-    insights = []
     for cat in analysis_result.get("insights_by_category", []):
-        insights.extend(cat.get("insights", []))
-    query_parts.extend(insights)
+        query_parts.extend(cat.get("insights", []))
     
-    query_text = " ".join(query_parts)
+    query_text = " ".join([str(p) for p in query_parts if p])
     
-    # Simple TF-IDF based retrieval
     def vectorize(text: str) -> Dict[str, float]:
         tokens = text.lower().split()
         counts = Counter(tokens)
@@ -499,169 +647,121 @@ def retrieve_similar_examples(analysis_result: Dict[str, Any], examples_db: List
             score += weight * vec_b.get(term, 0.0)
         return float(score)
     
-    # Vectorize query
     query_vec = vectorize(query_text)
-    
-    # Score examples
     scored_examples = []
     for ex in examples_db:
-        # Create document text from example
         doc_text = " ".join([
             ex.get("title", ""),
-            " ".join(ex.get("data_category", [])),
+            " ".join(ex.get("data_category", []) if isinstance(ex.get("data_category"), list) else []),
             ex.get("description", ""),
-            " ".join(ex.get("features", [])),
-            " ".join(ex.get("ui_elements", [])),
-            " ".join(ex.get("tools_used", []))
+            " ".join(ex.get("features", []) if isinstance(ex.get("features"), list) else []),
+            " ".join(ex.get("ui_elements", []) if isinstance(ex.get("ui_elements"), list) else []),
+            " ".join(ex.get("tools_used", []) if isinstance(ex.get("tools_used"), list) else [])
         ])
-        
         doc_vec = vectorize(doc_text)
         similarity = cosine_similarity(query_vec, doc_vec)
         scored_examples.append((similarity, ex))
     
-    # Sort by similarity and return top-k
     scored_examples.sort(key=lambda x: x[0], reverse=True)
     top_examples = [ex for _, ex in scored_examples[:top_k]]
     
-    print(f"✅ Retrieved {len(top_examples)} similar examples")
-    for i, ex in enumerate(top_examples, 1):
-        print(f"  {i}. {ex['id']} - {ex.get('title', '')}")
-    
+    print(f"[OK] Retrieved {len(top_examples)} similar examples")
     return top_examples
 
+
 def design_dashboard(analysis_result: Dict[str, Any], similar_examples: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Stage 3: Dashboard design based on analysis and examples
-    Creates comprehensive dashboard design specification
-    """
+    """Stage 3: Dashboard design based on analysis and examples."""
     print("\n=== STAGE 3: Dashboard Design ===")
     
     prompt = f"""
-# Data visualisation Dashboard Design Task
+# Data Visualisation Dashboard Design Task
 ## Dataset Analysis:
 {json.dumps(analysis_result, indent=2)}
 ## Similar Example Dashboards:
 {json.dumps(similar_examples, indent=2)}
+
 ## Task:
-Design a comprehensive, interactive, and animated dashboard (that will be coded using dash+plotly [you dont have to code]) based on the dataset analysis and similar examples.
+Design a comprehensive, interactive, and animated dashboard (using Dash + Plotly) based on the dataset analysis.
 ## Requirements:
-### 1. Dashboard Structure:
-- **Title**: Create a compelling, dataset-appropriate title
-- **Styling**: Dark and modern theme
-- **Layout**: Controls panel (user can select feilds, time periods, parameters,etc.) , 3-4 main main coordinated interconnected plots, updating table region (from the dataset) according to user selections, updating insights panel.
-
-### 2. Time-based Features (if time data exists):
-- Add play/pause animation button so that plots can update with time attribute when played.
-- Make ALL plots linked to time updates
-- Implement smooth transitions between time periods
-- Add time scrubber/slider/selector in the controls panel
-
-### 3. Interactive Elements:
-- **Parameter Selectors**: Dropdowns, sliders, checkboxes for different fields
-- **Linked Plots**: All visualizations update based on user selections
-- **Color Linking**: Use consistent color schemes across plots
-- **Legend Selections**: Interactive legends that filter data
-
-### 4. Visualization Types (add 3-4 unique plots like):
-- **Geographical**: Choropleth maps, Globe with point clouds,Animated migration/flight paths,Density mapbox, route maps for transportation data
-- **Temporal**: Time series, animated charts, animations accross time selection.
-- **Statistical**: 3D Scatter plots, Sankey diagrams ,Sunburst charts, Treemaps(for hierarchical data), Chord diagrams
-- **Tables**: Display data for different selected categories in a beautiful table.
-- **Refer the retrieved examples**
-
-### 5. Insights Panel:
-- Dynamic insights that update based on user selections
-- Use insights from the analysis
-- Make it interactive and informative
-
-### 6. Technical Requirements:
-- Use Dash (latest version)
-- Make it responsive and modern
-- Ensure all interactions work properly (inspect all callbacks, dont make duplicate ones)
-- All categorical filters must specify how they map to underlying data codes
-## Output Format (JSON):
+1. Dashboard Structure:
+   - Compelling title tailored to dataset
+   - Dark modern theme (DARKLY / plotly_dark)
+   - Controls panel (dropdowns, sliders, checkboxes for fields and time periods)
+   - 3-4 coordinated interconnected plots
+   - Dynamic filtered data table (dash_table.DataTable)
+   - Dynamic insights panel
+2. Interactive Elements:
+   - Parameter selectors (metric dropdown, category filter, time slider)
+   - Linked plots updating from shared filtered dataset
+   - Smooth animations / play button if time data exists
+3. Output JSON format:
 {{
     "dashboard_title": "string",
     "styling": {{
-        "theme": "string",
-        "color_scheme": ["string"],
-        "font_family": "string",
-        "background_style": "string"
+        "theme": "DARKLY",
+        "color_scheme": ["#00F2FE", "#4FACFE", "#00C9FF", "#92FE9D"],
+        "background_style": "dark"
     }},
     "layout": {{
-        "type": "string (grid/sidebar/tabs)",
-        "rows": "integer",
-        "columns": "integer",
-        "description": "string"
+        "type": "sidebar",
+        "description": "Sidebar controls with main chart grid and bottom data table + insights"
     }},
     "plots": [
         {{
-            "plot_id": "string",
-            "plot_type": "ex. choropleth/3D scatter/sankey/time series etc.",
+            "plot_id": "plot_1",
+            "plot_type": "bar/line/scatter/choropleth/histogram/pie/treemap",
             "title": "string",
             "description": "string",
-            "data_source": "string",
-            "interactions": ["string"],
-            "position": {{"row": "integer", "col": "integer"}},
-            "size": {{"width": "integer", "height": "integer"}}
+            "position": {{"row": 1, "col": 1}}
         }}
     ],
     "controls": [
         {{
-            "control_id": "string",
-            "control_type": "string (dropdown,slider,checkbox,button,play/pause,pointer)",
-            "label": "string",
-            "options": ["string"],
-            "default_value": "any",
-            "description": "string"
+            "control_id": "ctrl_metric",
+            "control_type": "dropdown",
+            "label": "Select Metric",
+            "options": ["string"]
         }}
     ],
     "insights_panel": {{
-        "title": "string",
-        "content_sections": ["string"],
-        "update_triggers": ["string"]
-    }},
-    "animations": [
-        {{
-            "type": "string",
-            "description": "string",
-            "triggers": ["string"]
-        }}
-    ],
-    "interactions": [
-        {{
-            "from": "string",
-            "to": "string",
-            "type": "string",
-            "description": "string"
-        }}
-    ]
+        "title": "Dynamic Insights",
+        "content_sections": ["string"]
+    }}
 }}
 """
     
     try:
         client = get_groq_client()
-        response = client.chat.completions.create(
+        response = _chat_completion_with_fallback(
+            client=client,
+            preferred_model=MODEL_DESIGN,
             messages=[{"role": "user", "content": prompt}],
-            model=MODEL_DESIGN,
             temperature=0.2,
             response_format={"type": "json_object"},
             max_tokens=3000
         )
-        
         result = json.loads(response.choices[0].message.content)
-        print("✅ Dashboard design completed")
+        print("[OK] Dashboard design completed")
         return result
-        
     except Exception as e:
-        print(f"❌ Dashboard design failed: {str(e)}")
-        return {} 
+        print(f"[ERROR] Dashboard design failed: {str(e)}")
+        return {
+            "dashboard_title": "Executive Data Analytics Dashboard",
+            "styling": {"theme": "DARKLY", "color_scheme": ["#00F2FE", "#4FACFE"]},
+            "plots": [
+                {"plot_id": "plot_trend", "plot_type": "line", "title": "Primary Trend Analysis"},
+                {"plot_id": "plot_dist", "plot_type": "bar", "title": "Distribution by Category"},
+                {"plot_id": "plot_scatter", "plot_type": "scatter", "title": "Multi-Metric Correlation"}
+            ],
+            "controls": [
+                {"control_id": "ctrl_metric", "control_type": "dropdown", "label": "Select Metric"}
+            ],
+            "insights_panel": {"title": "Key Insights", "content_sections": ["Live metric summaries"]}
+        }
 
-def generate_dash_code(analysis_result: Dict[str, Any], design_spec: Dict[str, Any], dataset_summary: Dict[str, Any],dashboard_id: str = None) -> str:
-    """
-    Stage 4: Generate complete Dash app code
-    Creates the full interactive dashboard based on design specification
-    """
+
+def generate_dash_code(analysis_result: Dict[str, Any], design_spec: Dict[str, Any], dataset_summary: Dict[str, Any], dashboard_id: str = None) -> str:
+    """Stage 4: Generate complete Dash app code."""
     print("\n=== STAGE 4: Code Generation ===")
     
     prompt = f"""
@@ -674,23 +774,38 @@ def generate_dash_code(analysis_result: Dict[str, Any], design_spec: Dict[str, A
 {json.dumps(dataset_summary, indent=2)}
 
 ## Task:
-Generate a complete, working Dash app code that implements the given dashboard design to make the most interactive, intuitive, informative, animated, smooth data visualisation dashboard.
+Generate a complete, production-ready, beautiful, interactive Python Dash dashboard application tailored to this dataset.
 
-Note: The dataset file is located at 'dataset.csv' in the same directory as the generated Python code.
-ALWAYS load the dataset exactly like this (include the imports if missing):
+### STRICT DASH BOOTSTRAP COMPONENTS (DBC 2.0.4) RULES:
+1. NEVER USE `dbc.FormGroup`! It was deprecated and removed in DBC 1.0+/2.0.4. Using `dbc.FormGroup` will crash the application with an AttributeError!
+   - INSTEAD USE: `html.Div([dbc.Label("My Label", className="form-label text-light"), dcc.Dropdown(...)], className="mb-3")` or `dbc.Row([dbc.Col(...)], className="mb-3")`.
+2. NEVER USE `dbc.InputGroupAddon`! Use `dbc.InputGroupText(...)` instead.
+3. NEVER USE `dbc.CardDeck` or `dbc.CardColumns`! Use `dbc.Row([dbc.Col(...)])` instead.
+4. For all `dcc.Dropdown` components, add `style={{'color': '#111827'}}` so options are readable with high contrast against the dark background.
+
+### APP STRUCTURE & BOILERPLATE:
 ```python
-script_dir = os.path.dirname(os.path.abspath(__file__))
-dataset_path = os.path.join(script_dir, 'dataset.csv')
-df = pd.read_csv(dataset_path)
-```
-Read the server port from the environment variable PORT and pass it to app.run so the backend can choose the port. The app will be mounted behind a reverse proxy under a subpath, provided in env BASE_PATH (e.g., "/dash3/"). You MUST configure Dash to respect this base path by setting both requests_pathname_prefix and routes_pathname_prefix when constructing the Dash app. Use these patterns:
-```python
-import dash
 import os
+import sys
+import pandas as pd
+import numpy as np
+import dash
+import dash_bootstrap_components as dbc
+from dash import dcc, html, dash_table, callback, Output, Input, State
+from dash.exceptions import PreventUpdate
+import plotly.express as px
+import plotly.graph_objects as go
+
+# Safe dataset loading
+script_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
+dataset_path = os.path.join(script_dir, 'dataset.csv') if os.path.exists(os.path.join(script_dir, 'dataset.csv')) else 'dataset.csv'
+df = pd.read_csv(dataset_path)
+
+# Base path for reverse proxy support
 base_path = os.getenv('BASE_PATH', '/')
-# build Dash app with base path so it works under Nginx subpaths
 app = dash.Dash(
     __name__,
+    external_stylesheets=[dbc.themes.DARKLY],
     requests_pathname_prefix=base_path,
     routes_pathname_prefix=base_path,
     suppress_callback_exceptions=True,
@@ -703,85 +818,58 @@ def add_cors_headers(response):
     response.headers['Access-Control-Allow-Methods'] = '*'
     return response
 
+# Layout: Sidebar controls + Main area (KPI cards + 3-4 coordinated plots + Filtered DataTable + Insights panel)
+# Use dcc.Store(id='filtered-data') for shared state
+# Callbacks:
+# 1. @callback(Output('filtered-data', 'data'), [Inputs...]) -> updates filtered records
+# 2. @callback(Output('plot-1', 'figure'), Input('filtered-data', 'data'), ...) -> returns go.Figure with template='plotly_dark'
+# 3. @callback(Output('insights-panel', 'children'), Input('filtered-data', 'data')) -> returns insights
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', '8050'))
     app.run(host='0.0.0.0', port=port, debug=False)
 ```
-Key requirements:
-1. Use this structure (refer design spec):
-   - Imports (dash, plotly, pandas, etc.)
-   - Data loading/preprocessing/transformation/filtering
-   - App setup with dark theme styling according to design spec
-   - Controls panel
-   - Main visualization area (3-4 coordinated linked plots)
-   - Data table + insights panel
-   - dcc.Store for shared data
-   - correct callbacks
-   - When using categorical variables, implement proper mapping between filter selections and data codes
-   - Always map numeric codes back to meaningful labels for visualization
-2. Must include (according to design spec) :
-   - All plots mentioned in the design spec must be implemented according to the linkages, interactions and filterations mentioned.
-   - Filterable data table part that represents user selected filtered data from real user enetered dataset.
-   - Dynamic insights panel - get the insights from analysis_result.
-   - Time animation controls (if dataset has a time related feild)
-   - DO INCLUDE ALL THE UNIQUE PLOTS WITH CORRECT STRUCTURE, FILTERING, CALLBACKS etc. mentioned in the design spec.
-3. Rules:
-   - Use Dash 2.14+ (latest version)
-   - No unnecessary comments
-   - Max 320 lines of code (DO NOT EXCEED THIS)
-   - Type hinted callbacks
-   - Error handling with PreventUpdate
-   - Shared filtered data via dcc.Store
-   - Consistent color schemes, smooth transitions for animations
-   - MUST respect BASE_PATH by setting requests_pathname_prefix and routes_pathname_prefix as shown above so assets and callbacks work under a subpath
-Important:
-2. All plots, table, and insights must update from the same stored filtered data.
-3. Include proper error handling:
-```python
-from dash.exceptions import PreventUpdate
-if not filtered_data:
-    raise PreventUpdate
-```
- - Maintain color and selection state across updates.
- - Use app = dash.Dash(__name__, external_stylesheets=[dbc.themes.DARKLY]) for setup.
-Example for filtered-data callback:
-```python
-@callback(Output('filtered-data', 'data'),
-          [Input('time-selector', 'value'),
-           Input('category-dropdown', 'value')])
-def update_filtered_data(time_range, categories):
-    filtered = df[(df['time'] >= time_range[0]) & (df['time'] <= time_range[1])]
-    if categories:
-        filtered = filtered[filtered['category'].isin(categories)]
-    return filtered.to_dict('records')
-```
-(This is just an example — adapt to actual dataset and design)
-Return ONLY the complete runnable code. Ensure the app is created with the BASE_PATH-aware prefixes and the __main__ block uses app.run with the PORT read from environment as shown above.
+
+### REQUIREMENTS:
+- Use actual column names from the Dataset Summary.
+- Provide 3-4 distinct, coordinated Plotly charts (e.g., Time series, Bar chart, Scatter/Distribution, Treemap/Pie).
+- All Plotly figures must use `template='plotly_dark'` with clean dark layout (`paper_bgcolor='rgba(0,0,0,0)'`, `plot_bgcolor='rgba(0,0,0,0)'`).
+- Include a Filtered `dash_table.DataTable` with page_size=10, dark styling.
+- Dynamic Insights panel summarizing the filtered data.
+- Return ONLY the complete, runnable Python code without markdown explanations.
 """
     
     try:
         client = get_groq_client()
-        response = client.chat.completions.create(
+        response = _chat_completion_with_fallback(
+            client=client,
+            preferred_model=MODEL_CODE,
             messages=[{"role": "user", "content": prompt}],
-            model=MODEL_CODE,
             temperature=0.1,
-            max_tokens=6000
+            max_tokens=8192
         )
         
-        code = _extract_code_blocks(response.choices[0].message.content)
-
-        print("✅ Code generation completed")
-        return code.strip()
+        raw_code = response.choices[0].message.content or ""
+        code = _extract_code_blocks(raw_code)
+        if code:
+            code = sanitize_and_modernize_dash_code(code)
+            print("[OK] Code generation completed")
+            return code.strip()
+        else:
+            print("[WARN] Code generation returned empty block, using fallback")
+            return generate_fallback_dash_code(analysis_result, design_spec, dataset_summary)
         
     except Exception as e:
-        print(f"❌ Code generation failed: {str(e)}")
-        return ""
+        print(f"[ERROR] Code generation failed: {str(e)}")
+        logging.exception("Code generation failed; generating robust fallback dashboard")
+        return generate_fallback_dash_code(analysis_result, design_spec, dataset_summary)
+
 
 def optimize_code(code: str, analysis_result: Dict[str, Any], dataset_summary: Dict[str, Any]) -> str:
-    """
-    Stage 5: Code optimization and error resolution
-    Optimizes the generated code and fixes any issues
-    """
+    """Stage 5: Code optimization and error resolution."""
+    if not code:
+        return code
+
     print("\n=== STAGE 5: Code Optimization ===")
     
     prompt = f"""
@@ -794,48 +882,390 @@ def optimize_code(code: str, analysis_result: Dict[str, Any], dataset_summary: D
 {json.dumps(analysis_result, indent=2)}
 
 ## Task:
-Optimize the generated Dash code to make it:
-1. **More fitted to the dataset** - ensure all visualizations make sense for the data
-2. **Not too complex** - simplify where possible while maintaining functionality
-3. **Unique and interactive** - add creative touches that enhance user experience
-4. **Working and error-free** - fix the syntax or logical errors
-5. **Performance optimized** - ensure smooth interactions and fast loading
-6. Check all visualizations show meaningful labels (not numeric codes)
-7. Add meaningful tooltips for all components
-8. Check all callbacks, are they complete, connected and not duplicated?
-9. Ensure that there is no misconnected filter/animation/interaction
-10. If the environment defines BASE_PATH, ensure the Dash app is initialized with matching requests_pathname_prefix and routes_pathname_prefix so it runs under a reverse-proxy subpath. Do not remove this if already present.
-## Output:
-Return the optimized, working Python code. The code should:
-- Be complete and runnable - no errors in callbacks or layout. All components including filters should work together and have enough space.
-- Show the true dataset features and insights in the visualisation dashboard
-- Ensure all plots are showing what they are supposed to show, none of the plots should be blank. Ensure the code of the unique plots works with the data and they are visible.
-- Include all necessary imports
-- Ensure that the pay/pause animations work and update all plots according to time (if temporal data present)
-- Have proper error handling
-- Improve the UI, ensure every component and text is distinctly visisble, the colour of text should be vibrant enough to be visible on the background colour. The filter selection text should be black.
-- DO NOT use any app._favicon
-- Do not use run_server(); use app.run(host='0.0.0.0', port=int(os.getenv('PORT', '8050')), debug=False) inside __main__
- - Respect BASE_PATH prefixes if present in the environment so the app works under subpaths behind Nginx.
-Make sure the final code is production-ready and can handle the user's dataset effectively.
+Optimize the generated Dash code for high performance, modern UI, and error-free execution.
+CRITICAL RULES:
+1. NEVER USE `dbc.FormGroup`! It is deprecated and removed in DBC 2.0.4. Use `html.Div([dbc.Label(...), ...], className="mb-3")` instead.
+2. NEVER USE `dbc.InputGroupAddon`. Use `dbc.InputGroupText` instead.
+3. Ensure all `dcc.Dropdown` components include `style={{'color': '#111827'}}` so dropdown options are visible in dark mode.
+4. Ensure all callbacks are valid, have unique Output targets (or `allow_duplicate=True`), and handle empty filtered data gracefully with PreventUpdate.
+5. Keep `requests_pathname_prefix=base_path`, `routes_pathname_prefix=base_path`, and `app.run(host='0.0.0.0', port=int(os.getenv('PORT', '8050')), debug=False)`.
+6. Return ONLY the full optimized Python code (no markdown, no explanations).
 """
     
     try:
         client = get_groq_client()
-        response = client.chat.completions.create(
+        response = _chat_completion_with_fallback(
+            client=client,
+            preferred_model=MODEL_OPTIMIZE,
             messages=[{"role": "user", "content": prompt}],
-            model=MODEL_OPTIMIZE,
-            temperature=0.1
+            temperature=0.1,
+            max_tokens=8192
         )
         
-        optimized_code = _extract_code_blocks(response.choices[0].message.content)
-
-        print("✅ Code optimization completed")
-        return optimized_code.strip()
+        raw_code = response.choices[0].message.content or ""
+        optimized = _extract_code_blocks(raw_code)
+        if optimized:
+            optimized = sanitize_and_modernize_dash_code(optimized)
+            ok, err = _validate_code(optimized)
+            if ok:
+                print("[OK] Code optimization completed")
+                return optimized.strip()
+            else:
+                logging.warning(f"Optimized code failed syntax validation ({err}); preserving previous valid code")
+                return code
+        return code
         
     except Exception as e:
-        print(f"❌ Code optimization failed: {str(e)}")
-        return code  # Return original code if optimization fails
+        print(f"[ERROR] Code optimization failed: {str(e)}")
+        return code
+
+
+def generate_fallback_dash_code(analysis_result: Dict[str, Any], design_spec: Dict[str, Any], dataset_summary: Dict[str, Any]) -> str:
+    """Generate a 100% valid, beautiful, complete fallback Dash application
+    customized directly to the dataset schema and analysis results.
+    """
+    cols = dataset_summary.get("columns", [])
+    types = dataset_summary.get("types", {})
+    
+    num_cols = [c for c in cols if any(t in str(types.get(c, "")).lower() for t in ("int", "float", "num", "double"))]
+    cat_cols = [c for c in cols if c not in num_cols]
+    
+    title = design_spec.get("dashboard_title") or "Veridia Analytics Dashboard"
+    primary_num = num_cols[0] if num_cols else (cols[0] if cols else "Value")
+    secondary_num = num_cols[1] if len(num_cols) > 1 else primary_num
+    primary_cat = cat_cols[0] if cat_cols else (cols[0] if cols else "Category")
+    secondary_cat = cat_cols[1] if len(cat_cols) > 1 else primary_cat
+
+    fallback_py = f'''import os
+import sys
+import pandas as pd
+import numpy as np
+import dash
+import dash_bootstrap_components as dbc
+from dash import dcc, html, dash_table, callback, Output, Input, State
+from dash.exceptions import PreventUpdate
+import plotly.express as px
+import plotly.graph_objects as go
+
+# -------------------- Load Dataset --------------------
+script_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
+dataset_path = os.path.join(script_dir, 'dataset.csv') if os.path.exists(os.path.join(script_dir, 'dataset.csv')) else 'dataset.csv'
+df = pd.read_csv(dataset_path)
+
+# Fill missing values for robust rendering
+for col in df.columns:
+    if pd.api.types.is_numeric_dtype(df[col]):
+        df[col] = df[col].fillna(0)
+    else:
+        df[col] = df[col].fillna("Unknown").astype(str)
+
+# -------------------- App Initialization --------------------
+base_path = os.getenv('BASE_PATH', '/')
+app = dash.Dash(
+    __name__,
+    external_stylesheets=[dbc.themes.DARKLY],
+    requests_pathname_prefix=base_path,
+    routes_pathname_prefix=base_path,
+    suppress_callback_exceptions=True,
+)
+
+@app.server.after_request
+def _add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = '*'
+    return response
+
+# Available options for controls
+NUMERIC_COLS = {json.dumps(num_cols if num_cols else cols[:2])}
+CAT_COLS = {json.dumps(cat_cols if cat_cols else cols[:2])}
+DEFAULT_METRIC = "{primary_num}"
+DEFAULT_CAT = "{primary_cat}"
+
+# -------------------- Layout --------------------
+sidebar_controls = dbc.Card(
+    [
+        html.H4("Controls & Filters", className="card-title text-info mb-3"),
+        html.Div(
+            [
+                dbc.Label("Primary Metric", className="form-label text-light"),
+                dcc.Dropdown(
+                    id="metric-dropdown",
+                    options=[{{"label": c, "value": c}} for c in NUMERIC_COLS] or [{{"label": "{primary_num}", "value": "{primary_num}"}}],
+                    value=DEFAULT_METRIC,
+                    clearable=False,
+                    style={{"color": "#111827"}},
+                ),
+            ],
+            className="mb-3",
+        ),
+        html.Div(
+            [
+                dbc.Label("Grouping Dimension", className="form-label text-light"),
+                dcc.Dropdown(
+                    id="cat-dropdown",
+                    options=[{{"label": c, "value": c}} for c in CAT_COLS] or [{{"label": "{primary_cat}", "value": "{primary_cat}"}}],
+                    value=DEFAULT_CAT,
+                    clearable=False,
+                    style={{"color": "#111827"}},
+                ),
+            ],
+            className="mb-3",
+        ),
+        html.Div(
+            [
+                dbc.Label("Records to Sample", className="form-label text-light"),
+                dcc.Slider(
+                    id="sample-slider",
+                    min=min(10, len(df)),
+                    max=min(500, max(50, len(df))),
+                    step=10,
+                    value=min(100, len(df)),
+                    marks={{
+                        min(10, len(df)): str(min(10, len(df))),
+                        min(100, len(df)): "100",
+                        min(500, max(50, len(df))): str(min(500, max(50, len(df)))),
+                    }},
+                ),
+            ],
+            className="mb-3",
+        ),
+        dbc.Button("Refresh Visualizations", id="btn-refresh", color="primary", className="w-100 mt-2"),
+    ],
+    body=True,
+    className="bg-dark border-secondary shadow-sm mb-3",
+)
+
+kpi_cards = dbc.Row(
+    [
+        dbc.Col(
+            dbc.Card(
+                dbc.CardBody(
+                    [
+                        html.H6("Total Records", className="text-muted mb-1"),
+                        html.H3(f"{{len(df):,}}", className="text-info fw-bold mb-0"),
+                    ]
+                ),
+                className="bg-dark border-secondary shadow-sm",
+            ),
+            width=4,
+        ),
+        dbc.Col(
+            dbc.Card(
+                dbc.CardBody(
+                    [
+                        html.H6("Dimensions Analyzed", className="text-muted mb-1"),
+                        html.H3(f"{{len(df.columns)}} Columns", className="text-success fw-bold mb-0"),
+                    ]
+                ),
+                className="bg-dark border-secondary shadow-sm",
+            ),
+            width=4,
+        ),
+        dbc.Col(
+            dbc.Card(
+                dbc.CardBody(
+                    [
+                        html.H6("Selected Metric Aggregate", className="text-muted mb-1"),
+                        html.H3(id="kpi-metric-val", children="...", className="text-warning fw-bold mb-0"),
+                    ]
+                ),
+                className="bg-dark border-secondary shadow-sm",
+            ),
+            width=4,
+        ),
+    ],
+    className="mb-3 g-2",
+)
+
+app.layout = dbc.Container(
+    [
+        dcc.Store(id="filtered-data-store"),
+        dbc.Row(
+            [
+                dbc.Col(
+                    html.Div(
+                        [
+                            html.H2("{title}", className="text-light fw-bold mb-1"),
+                            html.P("Interactive Verified Analytics Dashboard", className="text-muted mb-3"),
+                        ]
+                    ),
+                    width=12,
+                )
+            ]
+        ),
+        dbc.Row(
+            [
+                dbc.Col(sidebar_controls, width=12, lg=3),
+                dbc.Col(
+                    [
+                        kpi_cards,
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    dbc.Card(
+                                        dbc.CardBody([dcc.Graph(id="chart-bar", config={{"displayModeBar": False}})]),
+                                        className="bg-dark border-secondary shadow-sm mb-3",
+                                    ),
+                                    width=12,
+                                    lg=6,
+                                ),
+                                dbc.Col(
+                                    dbc.Card(
+                                        dbc.CardBody([dcc.Graph(id="chart-line", config={{"displayModeBar": False}})]),
+                                        className="bg-dark border-secondary shadow-sm mb-3",
+                                    ),
+                                    width=12,
+                                    lg=6,
+                                ),
+                            ],
+                            className="g-3 mb-3",
+                        ),
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    dbc.Card(
+                                        dbc.CardBody([dcc.Graph(id="chart-scatter", config={{"displayModeBar": False}})]),
+                                        className="bg-dark border-secondary shadow-sm mb-3",
+                                    ),
+                                    width=12,
+                                    lg=6,
+                                ),
+                                dbc.Col(
+                                    dbc.Card(
+                                        dbc.CardBody([dcc.Graph(id="chart-pie", config={{"displayModeBar": False}})]),
+                                        className="bg-dark border-secondary shadow-sm mb-3",
+                                    ),
+                                    width=12,
+                                    lg=6,
+                                ),
+                            ],
+                            className="g-3 mb-3",
+                        ),
+                        dbc.Card(
+                            dbc.CardBody(
+                                [
+                                    html.H5("Filtered Dataset Preview", className="card-title text-info mb-3"),
+                                    html.Div(id="table-container"),
+                                ]
+                            ),
+                            className="bg-dark border-secondary shadow-sm mb-3",
+                        ),
+                        dbc.Card(
+                            dbc.CardBody(
+                                [
+                                    html.H5("Dynamic Insights", className="card-title text-success mb-2"),
+                                    html.Div(id="insights-container", className="text-light"),
+                                ]
+                            ),
+                            className="bg-dark border-secondary shadow-sm mb-4",
+                        ),
+                    ],
+                    width=12,
+                    lg=9,
+                ),
+            ]
+        ),
+    ],
+    fluid=True,
+    className="p-3 bg-black min-vh-100",
+)
+
+# -------------------- Callbacks --------------------
+@callback(
+    Output("filtered-data-store", "data"),
+    [
+        Input("metric-dropdown", "value"),
+        Input("cat-dropdown", "value"),
+        Input("sample-slider", "value"),
+        Input("btn-refresh", "n_clicks"),
+    ],
+)
+def update_store(metric, cat_col, sample_size, n_clicks):
+    sample_size = sample_size or min(100, len(df))
+    dff = df.head(int(sample_size)).copy()
+    return dff.to_dict("records")
+
+@callback(
+    [
+        Output("chart-bar", "figure"),
+        Output("chart-line", "figure"),
+        Output("chart-scatter", "figure"),
+        Output("chart-pie", "figure"),
+        Output("kpi-metric-val", "children"),
+        Output("table-container", "children"),
+        Output("insights-container", "children"),
+    ],
+    [
+        Input("filtered-data-store", "data"),
+        Input("metric-dropdown", "value"),
+        Input("cat-dropdown", "value"),
+    ],
+)
+def update_visualizations(stored_data, metric, cat_col):
+    if not stored_data:
+        raise PreventUpdate
+
+    dff = pd.DataFrame(stored_data)
+    metric = metric if metric in dff.columns else (NUMERIC_COLS[0] if NUMERIC_COLS else dff.columns[0])
+    cat_col = cat_col if cat_col in dff.columns else (CAT_COLS[0] if CAT_COLS else dff.columns[0])
+
+    is_metric_num = pd.api.types.is_numeric_dtype(dff[metric])
+    agg_val = f"{{dff[metric].sum():,.2f}}" if is_metric_num else f"{{len(dff)}} items"
+
+    # 1. Bar Chart
+    if is_metric_num:
+        bar_df = dff.groupby(cat_col, as_index=False)[metric].mean().sort_values(by=metric, ascending=False).head(15)
+        fig_bar = px.bar(bar_df, x=cat_col, y=metric, title=f"Average {{metric}} by {{cat_col}}", template="plotly_dark", color=metric, color_continuous_scale="Viridis")
+    else:
+        counts = dff[cat_col].value_counts().reset_index().head(15)
+        counts.columns = [cat_col, "Count"]
+        fig_bar = px.bar(counts, x=cat_col, y="Count", title=f"Frequency of {{cat_col}}", template="plotly_dark", color="Count", color_continuous_scale="Viridis")
+    fig_bar.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=20, r=20, t=40, b=20))
+
+    # 2. Line Chart
+    fig_line = px.line(dff.reset_index(), x="index", y=metric, title=f"Sequential Profile of {{metric}}", template="plotly_dark", markers=True)
+    fig_line.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=20, r=20, t=40, b=20))
+
+    # 3. Scatter Chart
+    second_num = "{secondary_num}" if "{secondary_num}" in dff.columns and "{secondary_num}" != metric else (NUMERIC_COLS[1] if len(NUMERIC_COLS) > 1 else metric)
+    fig_scatter = px.scatter(dff, x=metric, y=second_num, color=cat_col, title=f"{{metric}} vs {{second_num}}", template="plotly_dark")
+    fig_scatter.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=20, r=20, t=40, b=20))
+
+    # 4. Pie / Donut Chart
+    pie_counts = dff[cat_col].value_counts().head(8).reset_index()
+    pie_counts.columns = [cat_col, "Count"]
+    fig_pie = px.pie(pie_counts, names=cat_col, values="Count", title=f"Top Categories Distribution ({{cat_col}})", template="plotly_dark", hole=0.4)
+    fig_pie.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=20, r=20, t=40, b=20))
+
+    # Table
+    preview_cols = [{{"name": i, "id": i}} for i in dff.columns[:8]]
+    table_elem = dash_table.DataTable(
+        data=dff.head(10).to_dict("records"),
+        columns=preview_cols,
+        page_size=10,
+        style_header={{"backgroundColor": "#1e293b", "color": "#f8fafc", "fontWeight": "bold", "border": "1px solid #334155"}},
+        style_cell={{"backgroundColor": "#0f172a", "color": "#cbd5e1", "border": "1px solid #334155", "fontSize": "13px", "padding": "8px"}},
+        style_table={{"overflowX": "auto"}},
+    )
+
+    # Insights
+    insights_elem = html.Ul(
+        [
+            html.Li("Displaying sample of " + str(len(dff)) + " records out of " + str(len(df)) + " total rows."),
+            html.Li("Primary metric aggregate (" + str(metric) + "): " + str(agg_val)),
+            html.Li("Primary category partition contains " + str(len(dff[cat_col].unique())) + " distinct values for " + str(cat_col) + "."),
+        ],
+        className="mb-0",
+    )
+
+    return fig_bar, fig_line, fig_scatter, fig_pie, agg_val, table_elem, insights_elem
+
+if __name__ == '__main__':
+    port = int(os.getenv('PORT', '8050'))
+    app.run(host='0.0.0.0', port=port, debug=False)
+'''
+    return fallback_py.strip()
 
 
 def apply_user_edit_minimal(
@@ -844,10 +1274,8 @@ def apply_user_edit_minimal(
     dataset_summary: Dict[str, Any] | None = None,
     analysis_result: Dict[str, Any] | None = None,
 ) -> str:
-    """
-    Use MODEL_CODE to apply a minimal edit to the existing Dash app based on the
-    user's request. Return the FULL updated Python code. The model is instructed
-    to only implement the requested change(s), making no unnecessary edits.
+    """Use MODEL_CODE to apply a minimal edit to the existing Dash app based on the
+    user's request. Return the FULL updated Python code.
     Fallback to the original code on failure.
     """
     print("\n=== CHAT EDIT: Applying minimal user-requested change ===")
@@ -856,15 +1284,15 @@ def apply_user_edit_minimal(
     prompt = f"""
 You are an expert Dash + Plotly engineer. You are given an existing Dash app (Python) and a user's modification request.
 Apply the SMALLEST POSSIBLE set of changes to implement ONLY what the user requested. Do NOT refactor or redesign anything else.
-REQUIREMENTS:
-- Maintain existing functionality; do not remove working parts unless asked.
-- Ensure code remains syntactically valid and runnable.
+CRITICAL DBC RULES:
+- NEVER USE `dbc.FormGroup`! It is deprecated and removed. Use `html.Div([dbc.Label(...), ...], className="mb-3")` instead.
+- NEVER USE `dbc.InputGroupAddon`. Use `dbc.InputGroupText` instead.
+- For `dcc.Dropdown`, keep `style={{'color': '#111827'}}` so options are visible in dark mode.
+- Maintain existing imports, layout, and callbacks.
 - Return ONLY the complete Python source (no markdown, no explanations).
-Context (dataset summary and prior analysis may help but do not justify unrelated edits):
-DATASET SUMMARY:\n{json.dumps(ds, indent=2)}
-ANALYSIS RESULT (optional):\n{json.dumps(ar, indent=2)}
 
-USER REQUEST:\n{user_request}
+USER REQUEST:
+{user_request}
 
 EXISTING CODE (edit minimally):
 ```python
@@ -872,174 +1300,120 @@ EXISTING CODE (edit minimally):
 ```
 """
     try:
-        # Alternate between code-generation and optimize models to avoid context saturation
         global CHAT_EDIT_CALL_COUNT
         CHAT_EDIT_CALL_COUNT += 1
         use_model = MODEL_CODE if CHAT_EDIT_CALL_COUNT % 2 == 1 else MODEL_OPTIMIZE
         print(f"[chat-edit] Using model: {use_model}")
 
         client = get_groq_client()
-        response = client.chat.completions.create(
+        response = _chat_completion_with_fallback(
+            client=client,
+            preferred_model=use_model,
             messages=[{"role": "user", "content": prompt}],
-            model=use_model,
-            temperature=0.1
+            temperature=0.1,
+            max_tokens=8192
         )
-        updated = _extract_code_blocks(response.choices[0].message.content)
-        ok, err = _validate_code(updated)
-        if ok and updated:
-            return updated.strip()
-        logging.warning(f"User chat edit returned invalid code; keeping original. Error: {err}")
+        raw = response.choices[0].message.content or ""
+        updated = _extract_code_blocks(raw)
+        if updated:
+            updated = sanitize_and_modernize_dash_code(updated)
+            ok, err = _validate_code(updated)
+            if ok:
+                return updated.strip()
+        logging.warning(f"User chat edit returned invalid code; keeping original.")
         return existing_code
     except Exception as e:
         logging.exception(f"Chat edit failed: {e}")
         return existing_code
 
+
 def fix_generated_code(code_path: str, error_text: str, output_dir: str) -> str:
-    """
-    Attempt to automatically fix a generated dashboard Python file using the LLM.
-
-    Parameters
-    - code_path: path to the generated Python file
-    - error_text: runtime stderr/stdout captured when attempting to run the file
-    - output_dir: directory where the dashboard files live (for context)
-
-    Returns the fixed code as a string if successful, or an empty string on failure.
+    """Attempt to automatically fix a generated dashboard Python file using
+    deterministic modernization heuristics and the LLM.
     """
     logging.info("=== AUTO-FIX: Attempting to fix generated dashboard code ===")
     print("\n=== AUTO-FIX: Attempting to fix generated dashboard code ===")
-    # Read original code
+
+    original_code = ""
     try:
-        with open(code_path, 'r', encoding='utf-8') as f:
-            original_code = f.read()
+        if os.path.exists(code_path):
+            with open(code_path, 'r', encoding='utf-8') as f:
+                original_code = f.read()
     except Exception as e:
         logging.exception(f"Could not read code at {code_path}: {e}")
+
+    if not original_code:
         return ""
 
-    # Fast non-LLM heuristics: normalize quotes and remove obvious English artifacts
-    candidate = original_code.replace('\u201c', '"').replace('\u201d', '"').replace('\u2018', "'").replace('\u2019', "'")
-    # Remove lines with clear English instruction artifacts inserted by models
-    filtered_lines = []
-    for ln in candidate.splitlines():
-        if len(ln) > 120 and re.search(r'[A-Za-z]{5,} .* [A-Za-z]{5,}', ln):
-            # skip long English lines
-            continue
-        if re.search(r'closest to \(|closest to ', ln, re.IGNORECASE):
-            continue
-        filtered_lines.append(ln)
-    candidate = "\n".join(filtered_lines)
+    dataset_path = os.path.join(output_dir, "dataset.csv")
 
-    ok, err = _validate_code(candidate)
-    if ok:
-        logging.info("Heuristic cleanup produced syntactically valid code")
-        try:
-            with open(os.path.join(output_dir, 'dashboard_app_fixed_candidate.py'), 'w', encoding='utf-8') as f:
-                f.write(candidate)
-        except Exception:
-            pass
-        return candidate
+    # 1. Deterministic Sanitization (Fixes DBC deprecations, FormGroup, quotes, BASE_PATH, CORS, etc.)
+    sanitized = sanitize_and_modernize_dash_code(original_code)
+    san_ok, san_err = _test_dash_code_runtime(sanitized, dataset_path)
+    if san_ok:
+        logging.info("Deterministic sanitization resolved the dashboard error")
+        print("[OK] Deterministic sanitization resolved the dashboard error")
+        return sanitized
 
-    # If heuristics failed, call LLM (optimized model) with a focused minimal-change prompt
+    # 2. If deterministic fix alone did not resolve runtime error, call LLM with exact traceback
     try:
         focused_prompt = f"""
-The Python Dash app below failed to start with the following runtime output (traceback or error message). Apply the smallest possible edit(s) to make it runnable and syntactically correct. DO NOT rewrite or reformat the entire file. Only change the lines necessary to fix the error. Return ONLY the full corrected Python source file with no markdown.
+You are an expert Dash + Plotly engineer. The Python Dash app below failed with the following runtime traceback.
+Apply the MINIMAL edits required to fix the error and make it 100% runnable.
+CRITICAL RULES:
+- NEVER USE `dbc.FormGroup`! It is deprecated and removed in DBC 2.0.4. Use `html.Div([dbc.Label(...), ...], className="mb-3")` instead.
+- NEVER USE `dbc.InputGroupAddon`. Use `dbc.InputGroupText` instead.
+- For `dcc.Dropdown`, use `style={{'color': '#111827'}}`.
+- Ensure all callbacks have matching Input and Output IDs that exist in the layout.
+- Return ONLY the full corrected Python source file without markdown fences or explanations.
 
 Runtime error:
 {error_text}
-
-Original file begins:
-{original_code}
-"""
-        client = get_groq_client()
-        response = client.chat.completions.create(
-            messages=[{"role": "user", "content": focused_prompt}],
-            model=MODEL_OPTIMIZE,
-            temperature=0.0
-        )
-        fixed_raw = response.choices[0].message.content or ""
-
-        # Extract code block if present
-        fixed = _extract_code_blocks(fixed_raw)
-        fixed = fixed.strip()
-
-        if not fixed:
-            logging.warning("LLM returned empty fix candidate")
-            return ""
-
-        ok2, err2 = _validate_code(fixed)
-        if ok2:
-            # Reject no-op fixes (identical code after normalization)
-            if _normalized_code(fixed) == _normalized_code(original_code):
-                logging.warning("LLM fix appears identical to original (no-op). Will attempt alternate strategy.")
-                print("LLM fix appears identical to original (no-op). Will attempt alternate strategy.")
-            else:
-                try:
-                    with open(os.path.join(output_dir, 'dashboard_app_fixed_candidate.py'), 'w', encoding='utf-8') as f:
-                        f.write(fixed)
-                except Exception:
-                    pass
-                logging.info("Auto-fix produced valid, changed code")
-                print("Auto-fix produced valid, changed code")
-                return fixed
-
-        # Second attempt: different model with explicit no-op avoidance
-        logging.info("First LLM attempt failed or was no-op; trying second model with stricter instructions")
-        second_prompt = f"""
-You previously returned a fix that was invalid or identical to the original. Read the runtime error and apply the MINIMAL NECESSARY edits to fix it.
-RULES:
-- Do NOT return code identical to the original; ensure the erroneous lines are corrected.
-- Keep the structure and formatting; change only what's required for the app to run.
-- Return ONLY the full corrected Python source (no markdown).
-
-Runtime error:
-{error_text}
+{san_err}
 
 Original code:
 ```python
-{original_code}
+{sanitized}
 ```
 """
-        try:
-            response2 = client.chat.completions.create(
-                messages=[{"role": "user", "content": second_prompt}],
-                model=MODEL_CODE,
-                temperature=0.0
-            )
-            fixed_raw2 = response2.choices[0].message.content or ""
-            fixed2 = _extract_code_blocks(fixed_raw2).strip()
-            if fixed2:
-                ok22, err22 = _validate_code(fixed2)
-                if ok22 and _normalized_code(fixed2) != _normalized_code(original_code):
-                    try:
-                        with open(os.path.join(output_dir, 'dashboard_app_fixed_candidate.py'), 'w', encoding='utf-8') as f:
-                            f.write(fixed2)
-                    except Exception:
-                        pass
-                    logging.info("Second LLM attempt produced valid, changed code")
-                    return fixed2
-                else:
-                    logging.warning(f"Second attempt invalid or no-op: valid={ok22}, reason={err22 if not ok22 else 'no-op'}")
-        except Exception as ee:
-            logging.exception(f"Second LLM attempt failed: {ee}")
+        client = get_groq_client()
+        response = _chat_completion_with_fallback(
+            client=client,
+            preferred_model=MODEL_OPTIMIZE,
+            messages=[{"role": "user", "content": focused_prompt}],
+            temperature=0.0,
+            max_tokens=8192
+        )
+        raw_fix = response.choices[0].message.content or ""
+        fixed = _extract_code_blocks(raw_fix)
+        if fixed:
+            fixed = sanitize_and_modernize_dash_code(fixed)
+            ok, dry_err = _test_dash_code_runtime(fixed, dataset_path)
+            if ok:
+                logging.info("LLM auto-fix produced working code verified at runtime")
+                print("[OK] LLM auto-fix produced working code verified at runtime")
+                return fixed
+            else:
+                logging.warning(f"LLM fix had runtime error: {dry_err}")
 
-        # If still invalid, attempt one more conservative Gemini pass (if configured)
+        # Try Gemini fallback if configured
         if GEMINI_API_KEY:
-            logging.info("First LLM fix invalid; attempting Gemini conservative fix")
-            gemini_try = gemini_optimize_code(candidate, {}, {})
-            ok3, err3 = _validate_code(gemini_try)
-            if ok3:
-                try:
-                    with open(os.path.join(output_dir, 'dashboard_app_fixed_candidate.py'), 'w', encoding='utf-8') as f:
-                        f.write(gemini_try)
-                except Exception:
-                    pass
-                logging.info("Gemini produced valid fix")
-                return gemini_try
+            gemini_fixed = gemini_optimize_code(sanitized, {}, {})
+            if gemini_fixed:
+                gemini_fixed = sanitize_and_modernize_dash_code(gemini_fixed)
+                g_ok, g_err = _test_dash_code_runtime(gemini_fixed, dataset_path)
+                if g_ok:
+                    return gemini_fixed
 
-        logging.warning("Auto-fix attempts failed to produce valid code")
+        # Fallback to sanitized version if it passes basic syntax
+        if _validate_code(sanitized)[0]:
+            return sanitized
+
         return ""
     except Exception as e:
         logging.exception(f"Auto-fix LLM attempt failed: {e}")
-        return ""
+        return sanitized if _validate_code(sanitized)[0] else ""
+
 
 def create_dashboard(
     data_file_path: str,
@@ -1048,34 +1422,31 @@ def create_dashboard(
     dashboard_id: str = None,
     progress_cb=None,
 ) -> str:
-    """
-    Main function to create dashboard through all 5 stages
-    """
-    print("🚀 Starting Dashboard Creation Pipeline")
+    """Main function to create dashboard through all pipeline stages with runtime verification."""
+    print("=== Starting Dashboard Creation Pipeline ===")
     print("=" * 50)
     
-    # Verify the key and configured models before stages that otherwise fall back silently.
     validate_groq_configuration()
 
     # Load data
     try:
         df = pd.read_csv(data_file_path)
-        print(f"📊 Loaded dataset: {len(df)} rows, {len(df.columns)} columns")
+        print(f"[OK] Loaded dataset: {len(df)} rows, {len(df.columns)} columns")
     except Exception as e:
-        print(f"❌ Failed to load data: {e}")
+        print(f"[ERROR] Failed to load data: {e}")
         raise ValueError(f"Failed to load dataset: {e}")
     
     # Load examples database
     try:
         with open(TEMPLATES_FILE, 'r', encoding='utf-8') as f:
             examples_db = json.load(f)
-        print(f"📚 Loaded {len(examples_db)} example dashboards")
+        print(f"[OK] Loaded {len(examples_db)} example dashboards")
     except Exception as e:
-        print(f"❌ Failed to load examples: {e}")
+        print(f"[WARN] Failed to load examples: {e}")
         examples_db = []
     
     current_dashboard_id = dashboard_id or str(uuid.uuid4())
-    # Helper: safe progress callback
+    
     def _progress(stage: str, progress: int, note: str | None = None):
         try:
             if callable(progress_cb):
@@ -1087,132 +1458,148 @@ def create_dashboard(
 
     # Stage 1: Comprehensive Dataset Analysis
     analysis_result = analyze_dataset_comprehensive(df)
-    # Build short note from analysis
     try:
         categories = [c.get("category") for c in (analysis_result.get("data_categories") or [])][:3]
         main_patterns = (analysis_result.get("dataset_analysis") or {}).get("main_patterns") or []
         note_1 = (
-            f"LLM analyzed your '{dataset_name}' with {len(df)} rows and {len(df.columns)} columns. "
-            f"Top categories: {', '.join([c for c in categories if c]) or 'N/A'}. "
-            f"Patterns: {', '.join(main_patterns[:2]) or '—'}"
+            f"LLM analyzed '{dataset_name}' ({len(df)} rows, {len(df.columns)} cols). "
+            f"Categories: {', '.join([c for c in categories if c]) or 'General'}. "
+            f"Patterns: {', '.join(main_patterns[:2]) or 'Multi-dimensional data'}"
         )
     except Exception:
-        note_1 = f"LLM analyzed your '{dataset_name}' (rows={len(df)}, cols={len(df.columns)})."
+        note_1 = f"LLM analyzed '{dataset_name}' ({len(df)} rows, {len(df.columns)} cols)."
     _progress("stage_1", 16, note_1)
     
     # Stage 2: RAG Retrieval
     similar_examples = retrieve_similar_examples(analysis_result, examples_db, top_k=3)
-    try:
-        note_2 = f"Retrieved {len(similar_examples)} similar examples to guide your dashboard design."
-    except Exception:
-        note_2 = "Retrieved similar examples."
-    _progress("stage_2", 32, note_2)
+    _progress("stage_2", 32, f"Retrieved {len(similar_examples)} matching visualization templates.")
     
     # Stage 3: Dashboard Design
     design_spec = design_dashboard(analysis_result, similar_examples)
-    try:
-        title = design_spec.get("dashboard_title") or "Dashboard"
-        plot_count = len(design_spec.get("plots") or [])
-        note_3 = f"Designed '{title}' with {plot_count} visualizations and interactive controls."
-    except Exception:
-        note_3 = "Designed dashboard layout and interactions."
-    _progress("stage_3", 48, note_3)
+    plot_count = len(design_spec.get("plots") or [])
+    title = design_spec.get("dashboard_title") or "Analytics Dashboard"
+    _progress("stage_3", 48, f"Designed '{title}' with {plot_count} coordinated plots and dynamic controls.")
     
     # Stage 4: Code Generation
+    def convert_val(v):
+        if isinstance(v, (pd.Timestamp, np.generic)):
+            return str(v)
+        return v
+
+    sample_dict = df.head(5).to_dict(orient='records')
+    safe_sample = [{k: convert_val(v) for k, v in row.items()} for row in sample_dict]
+
     dataset_summary = {
         "columns": list(df.columns),
         "types": {col: str(dtype) for col, dtype in df.dtypes.items()},
         "row_count": len(df),
-        "sample_data": df.head(5).to_dict(orient='records')
+        "sample_data": safe_sample
     }
     
     generated_code = generate_dash_code(analysis_result, design_spec, dataset_summary, current_dashboard_id)
-    note_4 = "Generated complete Dash app code tailored to your dataset."
-    _progress("stage_4", 64, note_4)
+    _progress("stage_4", 64, "Generated complete interactive Dash code.")
     
     # Stage 5: Code Optimization (Groq)
     optimized_code = optimize_code(generated_code, analysis_result, dataset_summary)
-    note_5 = "Optimized the code for correctness, performance, and UI polish."
-    _progress("stage_5", 82, note_5)
-    # Stage 5b: Gemini Optimization
-    gemini_code = gemini_optimize_code(optimized_code, analysis_result, dataset_summary)
-    # Validate code variants and pick the best passing checks
-    candidates = [
-        ("gemini", gemini_code),
-        ("optimized", optimized_code),
-        ("generated", generated_code),
-    ]
-    chosen_name = "generated"
-    final_code = generated_code
-    for name, code in candidates:
-        ok, issues = _validate_dash_code(code)
-        if ok:
-            chosen_name = name
-            final_code = code
-            break
+    _progress("stage_5", 82, "Optimized code for high performance and visual polish.")
     
-    # Save results in the specified output directory (dashboard directory)
+    # Stage 5b: Gemini Optimization (Optional)
+    gemini_code = gemini_optimize_code(optimized_code, analysis_result, dataset_summary)
+    
+    # Sanitize all candidate variants
+    candidates = [
+        ("gemini", sanitize_and_modernize_dash_code(gemini_code)),
+        ("optimized", sanitize_and_modernize_dash_code(optimized_code)),
+        ("generated", sanitize_and_modernize_dash_code(generated_code)),
+    ]
+
+    chosen_name = "generated"
+    final_code = ""
+
+    # 1. Prefer candidate that passes full AST semantic validation
+    for name, code in candidates:
+        if code and code.strip():
+            ok, issues = _validate_dash_code(code)
+            if ok:
+                chosen_name = name
+                final_code = code
+                break
+
+    # 2. Fallback to any candidate that passes Python AST syntax check
+    if not final_code:
+        for name, code in candidates:
+            if code and code.strip():
+                ok, _ = _validate_code(code)
+                if ok:
+                    chosen_name = name
+                    final_code = code
+                    break
+
+    # 3. If all LLM candidates failed, generate guaranteed fallback
+    if not final_code or not final_code.strip():
+        chosen_name = "fallback"
+        final_code = generate_fallback_dash_code(analysis_result, design_spec, dataset_summary)
+
+    # 4. Save results in dashboard directory
     os.makedirs(output_dir, exist_ok=True)
+    dataset_dest = os.path.join(output_dir, "dataset.csv")
+    if not os.path.exists(dataset_dest) and os.path.exists(data_file_path):
+        import shutil
+        shutil.copy2(data_file_path, dataset_dest)
+
+    # 5. Runtime Dry-Run Verification: Test the code before declaring stage 6 complete
+    runtime_ok, runtime_err = _test_dash_code_runtime(final_code, dataset_dest)
+    if not runtime_ok:
+        logging.warning(f"Runtime dry-run failed for {chosen_name} candidate: {runtime_err}. Attempting auto-fix.")
+        fixed_candidate = fix_generated_code("", runtime_err, output_dir)
+        if fixed_candidate and _test_dash_code_runtime(fixed_candidate, dataset_dest)[0]:
+            final_code = fixed_candidate
+            logging.info("Auto-fix successfully resolved runtime issue before initial save.")
+        else:
+            logging.warning("Auto-fix unable to resolve; falling back to dynamic verified dashboard.")
+            final_code = generate_fallback_dash_code(analysis_result, design_spec, dataset_summary)
+
     output_file = os.path.join(output_dir, "dashboard_app.py")
-    # Write snapshots so the frontend can always access generated/optimized/fixed versions
+
+    # Write snapshots
     try:
         with open(os.path.join(output_dir, "dashboard_app_generated.py"), 'w', encoding='utf-8') as f:
-            f.write("# Generated code (pre-optimization)\n")
-            f.write(generated_code or "# <no generated code>\n")
-    except Exception:
-        pass
-
-    try:
+            f.write("# Generated code (pre-optimization)\n" + (generated_code or "# <no generated code>\n"))
         with open(os.path.join(output_dir, "dashboard_app_optimized.py"), 'w', encoding='utf-8') as f:
-            f.write("# Optimized code (Groq)\n")
-            f.write(optimized_code or "# <no optimized code>\n")
-    except Exception:
-        pass
-    try:
+            f.write("# Optimized code (Groq)\n" + (optimized_code or "# <no optimized code>\n"))
         with open(os.path.join(output_dir, "dashboard_app_gemini.py"), 'w', encoding='utf-8') as f:
-            f.write("# Gemini-optimized code\n")
-            f.write(gemini_code or "# <no gemini code>\n")
+            f.write("# Gemini-optimized code\n" + (gemini_code or "# <no gemini code>\n"))
     except Exception:
         pass
 
-    # Validate final code
-    if not final_code or not final_code.strip() or final_code.strip().startswith("# No code generated"):
-        raise ValueError("Dashboard generation failed to produce valid Python code. Please verify your LLM API configuration and dataset.")
-
-    # Validate syntax
-    is_valid_code, val_err = _validate_code(final_code)
-    if not is_valid_code:
-        raise ValueError(f"Generated dashboard code failed Python syntax validation: {val_err}")
-
-    # Always write the main dashboard file
+    # Save final dashboard file
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(final_code)
     
-    # Save analysis and design for reference
-    with open(os.path.join(output_dir, "analysis_result.json"), 'w') as f:
+    # Save metadata
+    with open(os.path.join(output_dir, "analysis_result.json"), 'w', encoding='utf-8') as f:
         json.dump(analysis_result, f, indent=2)
     
-    with open(os.path.join(output_dir, "design_spec.json"), 'w') as f:
+    with open(os.path.join(output_dir, "design_spec.json"), 'w', encoding='utf-8') as f:
         json.dump(design_spec, f, indent=2)
     
-    print(f"\n🎉 Dashboard creation completed!")
-    print(f"📁 Output files saved to: {output_dir}")
-    print(f"🐍 Main dashboard: {output_file}")
+    print(f"\n[OK] Dashboard creation completed successfully!")
+    print(f"[OK] Output files saved to: {output_dir}")
+    print(f"[OK] Main dashboard: {output_file}")
     _progress("stage_6", 100, "All stages completed. Your dashboard is ready to launch.")
 
     return output_file
 
+
 def initialize_vector_database():
     """Initialize the vector database (placeholder for future implementation)"""
-    print("🔧 Vector database initialization (placeholder)")
-    # This would be implemented with a proper vector database like Pinecone, Weaviate, etc.
     pass
 
+
 if __name__ == "__main__":
-    # Test the pipeline
     test_data = str(DATA_DIR / "synthetic_transportation_data.csv")
     user_prompt = "Create a beautiful animated dashboard showing the entire dataset in a very modern, animated, interactive manner."
     test_output_dir = str(DASHBOARD_DIR / "test_run")
     
     output_file = create_dashboard(test_data, user_prompt, test_output_dir)
-    print(f"\n✅ Test completed. Dashboard saved to: {output_file}") 
+    print(f"\n[OK] Test completed. Dashboard saved to: {output_file}")

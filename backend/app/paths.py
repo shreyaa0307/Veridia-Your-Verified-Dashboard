@@ -7,7 +7,7 @@ from pathlib import Path
 
 # backend/app/paths.py -> parents[1] == backend/
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-SERVICES_DIR = Path(__file__).resolve().parent
+SERVICES_DIR = Path(__file__).resolve().parent / "services"
 REPO_ROOT = BACKEND_ROOT.parent
 
 DATA_DIR = BACKEND_ROOT / "data"

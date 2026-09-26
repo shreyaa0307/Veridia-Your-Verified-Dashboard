@@ -27,7 +27,7 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 
 from app.paths import (
     CHROMA_DIR,
@@ -44,6 +44,7 @@ from app.services.prompt_chain_new import (
     apply_user_edit_minimal,
     create_dashboard,
     fix_generated_code,
+    sanitize_and_modernize_dash_code,
 )
 
 # Load environment before accessing any variables
@@ -201,37 +202,83 @@ def _restore_status_from_disk(dashboard_id: str) -> Optional[dict]:
     return None
 
 
-def get_dashboard_url_and_base_path(port: int, request: Request) -> Tuple[str, Optional[str]]:
-    """Determine the external dashboard URL and base path based on request headers and configuration.
+def get_dashboard_url_and_base_path(dashboard_id: str, port: int, request: Request) -> Tuple[str, str]:
+    """Determine the external reverse-proxy dashboard URL and base path.
     
-    Supports:
-    1. Reverse-proxy deployments (via X-Forwarded-Host, X-Forwarded-Proto, or EXTERNAL_DASHBOARD_BASE_URL)
-    2. Local development directly accessing Dash app ports.
+    Routes dashboard requests through FastAPI backend proxy (/dashproxy/{dashboard_id}/)
+    so dashboards are accessible over LAN Network URLs and Vercel/Render production deployments.
     """
-    x_forwarded_proto = request.headers.get("x-forwarded-proto") or request.headers.get("X-Forwarded-Proto")
-    x_forwarded_host = request.headers.get("x-forwarded-host") or request.headers.get("X-Forwarded-Host")
+    base_path = f"/dashproxy/{dashboard_id}/"
     external_dash_base = os.getenv("EXTERNAL_DASHBOARD_BASE_URL", "").strip()
 
     if external_dash_base:
-        base_path = PORT_PATH_MAP.get(port, f"/dash{port - 8049}/")
         external_url = f"{external_dash_base.rstrip('/')}{base_path}"
-        return external_url, base_path
-    elif x_forwarded_host:
-        scheme = x_forwarded_proto or request.url.scheme or "http"
-        host_name = x_forwarded_host.split(":")[0]
-        base_path = PORT_PATH_MAP.get(port, f"/dash{port - 8049}/")
-        external_url = f"{scheme}://{host_name}{base_path}"
-        return external_url, base_path
     else:
-        # Local development direct connection
-        host = request.url.hostname or "127.0.0.1"
-        base_path = os.getenv("DASH_DEFAULT_BASE_PATH", None)
-        if base_path and base_path != "/":
-            external_url = f"http://{host}:{port}{base_path}"
+        x_forwarded_proto = request.headers.get("x-forwarded-proto") or request.headers.get("X-Forwarded-Proto")
+        x_forwarded_host = request.headers.get("x-forwarded-host") or request.headers.get("X-Forwarded-Host")
+
+        if x_forwarded_host:
+            scheme = x_forwarded_proto or request.url.scheme or "http"
+            host_name = x_forwarded_host
+            external_url = f"{scheme}://{host_name}{base_path}"
         else:
-            external_url = f"http://{host}:{port}"
-            base_path = "/"
-        return external_url, base_path
+            host = request.headers.get("host") or f"{request.url.hostname}:{request.url.port}"
+            scheme = request.url.scheme or "http"
+            external_url = f"{scheme}://{host}{base_path}"
+
+    return external_url, base_path
+
+
+@app.api_route(
+    "/dashproxy/{dashboard_id}/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
+)
+@app.api_route(
+    "/dashproxy/{dashboard_id}",
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
+)
+async def proxy_dashboard(dashboard_id: str, request: Request, path: str = ""):
+    """Proxy HTTP requests to internal Dash subprocess ports over unified FastAPI backend port."""
+    _validate_dashboard_id(dashboard_id)
+    info = running_dashboards.get(dashboard_id) or _restore_status_from_disk(dashboard_id)
+    if not info or not info.get("port"):
+        raise HTTPException(status_code=404, detail="Dashboard process not found or not running")
+
+    port = info["port"]
+    target_url = f"http://127.0.0.1:{port}/dashproxy/{dashboard_id}/{path}"
+    if request.url.query:
+        target_url += f"?{request.url.query}"
+
+    headers = {k: v for k, v in request.headers.items() if k.lower() != "host"}
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            req_body = await request.body()
+            resp = await client.request(
+                method=request.method,
+                url=target_url,
+                headers=headers,
+                content=req_body,
+                follow_redirects=True,
+            )
+
+            response_headers = {
+                k: v for k, v in resp.headers.items()
+                if k.lower() not in ("content-encoding", "transfer-encoding", "content-length")
+            }
+            response_headers["Access-Control-Allow-Origin"] = "*"
+            response_headers["Access-Control-Allow-Methods"] = "*"
+            response_headers["Access-Control-Allow-Headers"] = "*"
+
+            return Response(
+                content=resp.content,
+                status_code=resp.status_code,
+                headers=response_headers,
+                media_type=resp.headers.get("content-type"),
+            )
+    except Exception as err:
+        logging.error(f"Proxy error for dashboard {dashboard_id} on port {port}: {err}")
+        raise HTTPException(status_code=502, detail=f"Error proxying dashboard request: {err}")
 
 
 def find_available_port(start_port: int = 8050, end_port: int = 8060) -> int:
@@ -304,6 +351,38 @@ def _ensure_cors_in_dash_code(code: str) -> str:
     return code + cors_snippet
 
 
+def _ensure_host_binding(code: str) -> str:
+    """Ensure the generated Dash app's app.run() call binds to 0.0.0.0.
+
+    The FastAPI reverse proxy reaches the Dash subprocess via 127.0.0.1:{port}.
+    If the subprocess only listens on localhost the proxy still works, but if
+    the user hasn't set host= at all, or set it to '127.0.0.1', we normalise
+    it to '0.0.0.0' so the subprocess is reachable both from the proxy and
+    from direct LAN access.
+    """
+    # Replace host='localhost' or host='127.0.0.1' with host='0.0.0.0'
+    code = re.sub(r"""host\s*=\s*['"](?:localhost|127\.0\.0\.1)['"]""", "host='0.0.0.0'", code)
+
+    # If there's an app.run / app.run_server call without a host keyword, inject one.
+    # Match patterns like: app.run(  or app.run_server(  (possibly with existing args)
+    def _add_host_kwarg(m: re.Match) -> str:
+        call_text = m.group(0)
+        if "host=" in call_text:
+            return call_text
+        # Insert host='0.0.0.0' as the first keyword argument
+        # Find the closing paren and insert before it
+        open_paren = call_text.index("(")
+        inner = call_text[open_paren + 1 :].rstrip()
+        if inner.endswith(")"):
+            inner = inner[:-1].rstrip()
+            sep = ", " if inner.strip() else ""
+            return call_text[: open_paren + 1] + inner + sep + "host='0.0.0.0')"
+        return call_text
+
+    code = re.sub(r"app\.run(?:_server)?\s*\([^)]*\)", _add_host_kwarg, code)
+    return code
+
+
 def _start_dashboard_subprocess(
     dashboard_id: str,
     dashboard_dir: Path,
@@ -317,20 +396,22 @@ def _start_dashboard_subprocess(
     """
     _stop_dashboard_process(dashboard_id)
 
-    # Ensure CORS headers are present in the script before starting
+    # Patch the script before launching: ensure DBC modernization, CORS headers, and 0.0.0.0 host binding
     try:
         if code_path.exists():
             code_text = code_path.read_text(encoding="utf-8")
-            updated_code = _ensure_cors_in_dash_code(code_text)
-            if updated_code != code_text:
-                code_path.write_text(updated_code, encoding="utf-8")
+            patched = sanitize_and_modernize_dash_code(code_text)
+            patched = _ensure_cors_in_dash_code(patched)
+            patched = _ensure_host_binding(patched)
+            if patched != code_text:
+                code_path.write_text(patched, encoding="utf-8")
     except Exception as e:
-        logging.warning(f"Failed to inject CORS headers into {code_path}: {e}")
+        logging.warning(f"Failed to patch {code_path}: {e}")
 
     script_name = code_path.name
     cmd = [sys.executable, script_name]
 
-    child_env = {**os.environ, "PORT": str(port)}
+    child_env = {**os.environ, "PORT": str(port), "PYTHONUNBUFFERED": "1"}
     if base_path and base_path != "/":
         child_env["BASE_PATH"] = base_path
 
@@ -346,7 +427,21 @@ def _start_dashboard_subprocess(
         **_get_process_creation_kwargs(),
     )
 
-    time.sleep(1.0)
+    # Poll for port readiness instead of a fixed sleep — Dash can take several
+    # seconds to import dependencies, especially on the first run.
+    deadline = time.monotonic() + 15.0
+    port_ready = False
+    while time.monotonic() < deadline:
+        # Abort early if the process already crashed
+        if process.poll() is not None:
+            break
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                port_ready = True
+                break
+        except OSError:
+            time.sleep(0.5)
+
     if process.poll() is not None:
         try:
             stdout_log.close()
@@ -356,9 +451,14 @@ def _start_dashboard_subprocess(
         err_text = ""
         try:
             err_text = (dashboard_dir / "app_stderr.log").read_text(encoding="utf-8", errors="ignore")
+            # Persist error text to run_error.log for auto-fix diagnostics
+            (dashboard_dir / "run_error.log").write_text(err_text, encoding="utf-8")
         except Exception:
             pass
         return False, err_text or "Process exited immediately during startup", None
+
+    if not port_ready:
+        logging.warning(f"Dashboard {dashboard_id} port {port} not ready within 15s but process alive — continuing")
 
     return True, "", process.pid
 
@@ -606,7 +706,7 @@ async def run_dashboard(dashboard_id: str, request: Request):
             raise HTTPException(status_code=404, detail="Dashboard code file not found")
 
     port = find_available_port(8050, 8060)
-    external_url, base_path = get_dashboard_url_and_base_path(port, request)
+    external_url, base_path = get_dashboard_url_and_base_path(dashboard_id, port, request)
 
     is_running, err_msg, pid = _start_dashboard_subprocess(
         dashboard_id=dashboard_id,
@@ -615,6 +715,26 @@ async def run_dashboard(dashboard_id: str, request: Request):
         port=port,
         base_path=base_path,
     )
+
+    if not is_running:
+        # Attempt automatic recovery before returning failure
+        try:
+            logging.info(f"Dashboard {dashboard_id} initial run failed: {err_msg}. Attempting immediate auto-fix.")
+            error_text = err_msg or ""
+            if (dashboard_dir / "run_error.log").exists():
+                error_text = (dashboard_dir / "run_error.log").read_text(encoding="utf-8", errors="ignore") or error_text
+            fixed_code = fix_generated_code(str(code_path), error_text, str(dashboard_dir))
+            if fixed_code:
+                code_path.write_text(fixed_code, encoding="utf-8")
+                is_running, err_msg, pid = _start_dashboard_subprocess(
+                    dashboard_id=dashboard_id,
+                    dashboard_dir=dashboard_dir,
+                    code_path=code_path,
+                    port=port,
+                    base_path=base_path,
+                )
+        except Exception as rec_err:
+            logging.warning(f"Recovery attempt encountered exception: {rec_err}")
 
     if is_running:
         dashboard_info.update({
@@ -681,6 +801,11 @@ async def fix_dashboard(dashboard_id: str, request: Request):
             error_text = error_log_path.read_text(encoding="utf-8", errors="ignore")
         except Exception:
             pass
+    if not error_text and (dashboard_dir / "app_stderr.log").exists():
+        try:
+            error_text = (dashboard_dir / "app_stderr.log").read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            pass
     if not error_text:
         error_text = dashboard_info.get("error", "Unknown startup error")
 
@@ -691,10 +816,11 @@ async def fix_dashboard(dashboard_id: str, request: Request):
             detail="Auto-fix failed to produce a valid correction. See run_error.log for details.",
         )
 
-    # Validate the fixed code before saving
+    # Sanitize and validate the fixed code before saving
+    fixed_code = sanitize_and_modernize_dash_code(fixed_code)
     is_valid, issues = _validate_dash_code(fixed_code)
     if not is_valid:
-        # Attempt minimal syntax validation fallback
+        # Minimal syntax validation fallback
         is_syn_valid, syn_err = _validate_code(fixed_code)
         if not is_syn_valid:
             raise HTTPException(status_code=500, detail=f"Fixed code failed validation: {syn_err}")
@@ -708,7 +834,7 @@ async def fix_dashboard(dashboard_id: str, request: Request):
 
     # Launch fixed application
     port = find_available_port(8050, 8060)
-    external_url, base_path = get_dashboard_url_and_base_path(port, request)
+    external_url, base_path = get_dashboard_url_and_base_path(dashboard_id, port, request)
 
     is_running, err_msg, pid = _start_dashboard_subprocess(
         dashboard_id=dashboard_id,
@@ -817,7 +943,7 @@ async def chat_edit_dashboard(dashboard_id: str, request: Request):
     code_path.write_text(updated_code, encoding="utf-8")
 
     port = find_available_port(8050, 8060)
-    external_url, base_path = get_dashboard_url_and_base_path(port, request)
+    external_url, base_path = get_dashboard_url_and_base_path(dashboard_id, port, request)
 
     is_running, err_msg, pid = _start_dashboard_subprocess(
         dashboard_id=dashboard_id,
@@ -894,7 +1020,7 @@ async def update_code_and_run(dashboard_id: str, request: Request):
     code_path.write_text(code, encoding="utf-8")
 
     port = find_available_port(8050, 8060)
-    external_url, base_path = get_dashboard_url_and_base_path(port, request)
+    external_url, base_path = get_dashboard_url_and_base_path(dashboard_id, port, request)
 
     is_running, err_msg, pid = _start_dashboard_subprocess(
         dashboard_id=dashboard_id,

@@ -49,10 +49,39 @@ const DataVisualizationAgent = () => {
 
   const getEffectiveDashboardUrl = (url: string): string => {
     if (!url) return '';
+
+    // If it's already a relative path, return as-is
+    if (url.startsWith('/')) {
+      return url;
+    }
+
     try {
       const parsed = new URL(url);
+      const pathPart = parsed.pathname + (parsed.search ? `?${parsed.search}` : '');
+
+      if (pathPart.includes('/dashproxy/')) {
+        // In development (no explicit external VITE_API_BASE_URL), route the
+        // dashboard iframe through the Vite dev-server proxy so only port 5173
+        // needs to be reachable — port 8000 and Dash ports stay internal-only.
+        //
+        // In production (VITE_API_BASE_URL points to e.g. Render), reconstruct
+        // the absolute URL so the iframe hits the deployed backend directly.
+        const externalBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
+        if (externalBase && externalBase.startsWith('http')) {
+          // Production: use the backend's host (from VITE_API_BASE_URL) + the dashproxy path
+          return `${externalBase.replace(/\/$/, '')}${pathPart}`;
+        }
+        // Development: return relative path; Vite proxy forwards to backend
+        return pathPart;
+      }
+
+      // Fallback for legacy direct-port URLs: swap localhost / 127.0.0.1 → actual hostname
       if (typeof window !== 'undefined' && window.location && window.location.hostname) {
-        if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '0.0.0.0') {
+        if (
+          parsed.hostname === 'localhost' ||
+          parsed.hostname === '127.0.0.1' ||
+          parsed.hostname === '0.0.0.0'
+        ) {
           parsed.hostname = window.location.hostname;
         }
       }
